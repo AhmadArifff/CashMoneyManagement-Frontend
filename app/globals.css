@@ -1,0 +1,170 @@
+@import url('https://fonts.googleapis.com/css2?family=Sora:wght@500;600;700;800&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap');
+@import 'flatpickr/dist/flatpickr.min.css';
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  html {
+    scroll-behavior: smooth;
+  }
+  body {
+    @apply bg-paper text-ink;
+    font-family: 'Inter', sans-serif;
+    min-height: 100vh;
+  }
+  .font-display {
+    font-family: 'Sora', sans-serif;
+  }
+  .font-mono {
+    font-family: 'JetBrains Mono', monospace;
+  }
+  ::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+  }
+  ::-webkit-scrollbar-thumb {
+    background: #D7ECE4;
+    border-radius: 8px;
+  }
+  .view {
+    display: none;
+  }
+  .view.active {
+    display: block;
+  }
+  .modal-backdrop {
+    display: none;
+  }
+  .modal-backdrop.active {
+    display: flex;
+  }
+  .flatpickr-calendar {
+    font-family: 'Inter', sans-serif;
+    box-shadow: 0 10px 40px -10px rgba(16, 26, 23, 0.35) !important;
+    border-radius: 14px !important;
+    overflow: hidden;
+  }
+  .flatpickr-day.selected,
+  .flatpickr-day.startRange,
+  .flatpickr-day.endRange {
+    background: #1F6F5C !important;
+    border-color: #1F6F5C !important;
+  }
+  .flatpickr-day.inRange {
+    background: #D7ECE4 !important;
+    border-color: #D7ECE4 !important;
+    box-shadow: none !important;
+  }
+  .nav-link.active {
+    background: #124A3E;
+    color: #fff;
+  }
+  .nav-link.active svg {
+    stroke: #fff;
+  }
+  .tab-pill.active {
+    background: #16594A;
+    color: #fff;
+  }
+  .toast {
+    animation: toastIn .25s ease-out;
+  }
+  @keyframes toastIn {
+    from {
+      opacity: 0;
+      transform: translateY(8px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+  .cascade-bar {
+    transition: height .4s ease;
+  }
+  input[type='date']::-webkit-calendar-picker-indicator {
+    filter: invert(30%) sepia(20%) saturate(500%);
+  }
+  @media print {
+    body * {
+      visibility: hidden;
+    }
+  }
+  main {
+    transition: opacity 0.15s ease;
+  }
+}
+
+/* Splash screen styles */
+#splashOverlay, .splash-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(180deg, #ffffff 0%, #f7fdfb 100%);
+  transition: opacity .35s ease, visibility .35s ease;
+}
+.splash-inner {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-direction: column;
+  gap: 12px;
+}
+.splash-logo {
+  width: 196px;
+  height: auto;
+  animation: splashPulse 1.6s ease-in-out infinite;
+  will-change: transform, opacity;
+}
+.splash-hidden {
+  opacity: 0 !important;
+  pointer-events: none;
+  visibility: hidden !important;
+}
+@keyframes splashPulse {
+  0% { transform: scale(.96); opacity: .96; }
+  50% { transform: scale(1); opacity: 1; }
+  100% { transform: scale(.96); opacity: .96; }
+}
+
+/* Progress bar styles */
+.splash-progress-container {
+  width: 240px;
+  margin-top: 20px;
+}
+.splash-progress-bar {
+  width: 100%;
+  height: 4px;
+  background: #e0e0e0;
+  border-radius: 2px;
+  overflow: hidden;
+  position: relative;
+}
+.splash-progress-bar::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  height: 100%;
+  background: linear-gradient(90deg, #0f766e, #16a085, #0f766e);
+  border-radius: 2px;
+  animation: progressLoad 50s linear forwards;
+  width: 0%;
+}
+.splash-progress-text {
+  text-align: center;
+  font-size: 12px;
+  color: #666;
+  margin-top: 6px;
+  font-weight: 500;
+  font-family: 'JetBrains Mono', monospace;
+}
+@keyframes progressLoad {
+  0% { width: 0%; }
+  100% { width: 100%; }
+}
