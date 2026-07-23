@@ -184,6 +184,8 @@ export default function Home({ initialView = 'dashboard' }) {
       amount: Number(item.amount),
       date: item.date,
       note: item.note || '',
+      attachmentPath: item.attachment_path || '',
+      attachmentUrl: item.attachment_url || '',
       createdAt: item.created_at ? Date.parse(item.created_at) : Date.now(),
     });
 
@@ -451,6 +453,7 @@ export default function Home({ initialView = 'dashboard' }) {
         this.tokenKey = 'cashmoney:token';
         this.userKey = 'cashmoney:user';
         this.user = null;
+        this.inited = false;
         this.setupRepoKeys();
         const today = new Date();
         const first = new Date(today.getFullYear(), today.getMonth(), 1);
@@ -561,6 +564,8 @@ export default function Home({ initialView = 'dashboard' }) {
         toast('Berhasil keluar sesi');
       }
       async init() {
+        if (this.inited) return;
+        this.inited = true;
         this.bindNav();
         this.bindModals();
         this.bindRangePicker();
@@ -592,8 +597,6 @@ export default function Home({ initialView = 'dashboard' }) {
         }
 
         await this.loadAllData();
-        // Mark splash as shown so it won't show again this session
-        try { sessionStorage.setItem('cmm:splashShown', '1'); } catch(_) {}
       }
       hideLoading() {
         // fade out built-in loading overlay (if present)
@@ -602,18 +605,6 @@ export default function Home({ initialView = 'dashboard' }) {
           el.style.opacity = '0';
           el.style.transition = 'opacity .25s ease';
           setTimeout(() => el.remove(), 260);
-        }
-        // Remove splash overlay — only show it once per session, then remove immediately on subsequent navigations
-        const splash = document.getElementById('splashOverlay');
-        if (splash) {
-          const alreadyShown = (() => { try { return sessionStorage.getItem('cmm:splashShown') === '1'; } catch(_) { return false; } })();
-          if (alreadyShown) {
-            splash.remove();
-          } else {
-            splash.classList.add('splash-hidden');
-            setTimeout(() => splash.remove(), 380);
-          }
-          try { sessionStorage.setItem('cmm:splashShown', '1'); } catch (_) {}
         }
       }
       switchView(view) {
@@ -742,10 +733,13 @@ export default function Home({ initialView = 'dashboard' }) {
         this.renderAlertDropdown();
       }
       bindNav() {
-        const go = (view) => {
+        const go = async (view) => {
+          if (this.token) {
+            await this.loadAllData();
+          }
           this.switchView(view);
         };
-        document.querySelectorAll('[data-view]').forEach((btn) => btn.addEventListener('click', () => go(btn.dataset.view)));
+        document.querySelectorAll('[data-view]').forEach((btn) => btn.addEventListener('click', async () => go(btn.dataset.view)));
         document.getElementById('alertBell')?.addEventListener('click', (e) => {
           e.stopPropagation();
           this.toggleAlertDropdown();
@@ -981,6 +975,32 @@ export default function Home({ initialView = 'dashboard' }) {
           }
         }
       }
+      setAttachmentPreview(containerId, url) {
+        const el = document.getElementById(containerId);
+        if (!el) return;
+        if (!url) {
+          el.innerHTML = '';
+          return;
+        }
+        const filename = url.split('/').pop().split('?')[0];
+        el.innerHTML = `<a href="${url}" target="_blank" rel="noopener noreferrer" class="font-semibold text-teal-700 underline">Lihat bukti: ${filename}</a>`;
+      }
+      openAttachmentPreview(url) {
+        const modal = document.getElementById('attachmentPreviewModal');
+        const content = document.getElementById('attachmentPreviewContent');
+        const title = document.getElementById('attachmentPreviewTitle');
+        if (!modal || !content || !title || !url) return;
+        title.textContent = url.split('/').pop().split('?')[0] || 'Bukti';
+        const ext = url.split('.').pop().split('?')[0].toLowerCase();
+        if (['png', 'jpg', 'jpeg', 'webp', 'gif'].includes(ext)) {
+          content.innerHTML = `<img src="${url}" alt="Bukti" class="w-full h-auto max-h-[70vh] object-contain rounded-xl" />`;
+        } else if (ext === 'pdf') {
+          content.innerHTML = `<iframe src="${url}" class="w-full h-[72vh] border rounded-xl"></iframe>`;
+        } else {
+          content.innerHTML = `<div class="p-4 text-sm text-inksoft">Pratinjau tidak tersedia. <a href="${url}" target="_blank" rel="noopener noreferrer" class="text-teal-700 underline">Buka file di tab baru</a>.</div>`;
+        }
+        modal.classList.add('active');
+      }
       confirm(cb) {
         this.confirmCb = cb;
         this.openModal('confirmModal');
@@ -1004,7 +1024,8 @@ export default function Home({ initialView = 'dashboard' }) {
           const form = document.getElementById('expenseForm');
           form?.reset();
           document.getElementById('exp_id').value = '';
-          document.getElementById('exp_delete')?.classList.add('hidden');
+          const expDelBtn = document.getElementById('exp_delete');
+          if (expDelBtn) { expDelBtn.classList.add('hidden'); expDelBtn.style.display = ''; }
           document.getElementById('exp_date').value = U.todayStr();
           this.refreshExpenseFormFields();
           if (existingId) {
@@ -1020,7 +1041,12 @@ export default function Home({ initialView = 'dashboard' }) {
               document.getElementById('exp_status').value = it.status;
               document.getElementById('exp_estimate').checked = !!it.isEstimate;
               document.getElementById('exp_note').value = it.note || '';
-              document.getElementById('exp_delete')?.classList.remove('hidden');
+              this.setAttachmentPreview('exp_attachment_preview', it.attachmentUrl);
+              const delBtn = document.getElementById('exp_delete');
+              if (delBtn) {
+                delBtn.classList.remove('hidden');
+                delBtn.style.display = 'flex';
+              }
             }
           }
           this.openModal('expenseModal');
@@ -1044,6 +1070,7 @@ export default function Home({ initialView = 'dashboard' }) {
               document.getElementById('inc_amount').value = it.amount;
               document.getElementById('inc_date').value = it.date;
               document.getElementById('inc_note').value = it.note || '';
+              this.setAttachmentPreview('inc_attachment_preview', it.attachmentUrl);
               document.getElementById('inc_delete')?.classList.remove('hidden');
             }
           }
@@ -1068,8 +1095,11 @@ export default function Home({ initialView = 'dashboard' }) {
               document.getElementById('alc_amount').value = it.amount;
               document.getElementById('alc_date').value = it.date;
               document.getElementById('alc_note').value = it.note || '';
+              this.setAttachmentPreview('alc_attachment_preview', it.attachmentUrl);
               document.getElementById('alc_delete')?.classList.remove('hidden');
             }
+          } else {
+            this.setAttachmentPreview('alc_attachment_preview', null);
           }
           this.openModal('allocationModal');
         }
@@ -1201,7 +1231,43 @@ export default function Home({ initialView = 'dashboard' }) {
           note: document.getElementById('alc_note').value,
           createdAt: Date.now(),
         };
-        if (this.allocations.find(id)) await this.allocations.update(id, data); else await this.allocations.add(data);
+
+        const fileInput = document.getElementById('alc_attachment');
+        const file = fileInput?.files && fileInput.files[0] ? fileInput.files[0] : null;
+
+        if (file) {
+          const fd = new FormData();
+          fd.append('category', data.category);
+          fd.append('subcategory', data.subcategory);
+          fd.append('amount', String(data.amount));
+          fd.append('date', data.date);
+          fd.append('note', data.note || '');
+          fd.append('attachment', file);
+
+          try {
+            if (this.allocations.find(id)) {
+              fd.append('_method', 'PUT');
+              const resp = await this.allocations.apiRequest('POST', `${this.allocations.endpoint}/${id}`, fd);
+              const returned = resp?.data ?? resp;
+              const converted = this.allocations.fromBackend(returned);
+              const idx = this.allocations.items.findIndex((x) => x.id === id);
+              if (idx !== -1) this.allocations.items[idx] = converted; else this.allocations.items.push(converted);
+              await this.allocations.persist();
+            } else {
+              const resp = await this.allocations.apiRequest('POST', this.allocations.endpoint, fd);
+              const returned = resp?.data ?? resp;
+              const created = this.allocations.fromBackend(returned);
+              this.allocations.items.push(created);
+              await this.allocations.persist();
+            }
+          } catch (err) {
+            console.warn('Upload failed, falling back to local save', err);
+            if (this.allocations.find(id)) await this.allocations.update(id, data); else await this.allocations.add(data);
+          }
+        } else {
+          if (this.allocations.find(id)) await this.allocations.update(id, data); else await this.allocations.add(data);
+        }
+
         this.closeModal('allocationModal');
         this.renderAll();
         toast('Alokasi tersimpan');
@@ -1440,7 +1506,7 @@ export default function Home({ initialView = 'dashboard' }) {
           ? items
               .map(
                 (x) => `
-      <div data-edit="${x.id}" class="flex items-center justify-between gap-3 p-3.5 rounded-xl border border-line bg-white hover:border-teal-300 cursor-pointer transition">
+      <div data-edit="${x.id}" class="flex flex-col gap-3 p-3.5 rounded-xl border border-line bg-white hover:border-teal-300 cursor-pointer transition">
         <div class="flex items-center gap-3 min-w-0">
           <span class="w-2.5 h-2.5 rounded-full shrink-0" style="background:${EXPENSE_CATS[x.category].color}"></span>
           <div class="min-w-0">
@@ -1448,7 +1514,10 @@ export default function Home({ initialView = 'dashboard' }) {
             <p class="text-[12px] text-inksoft">${U.fmtDateID(x.date)} · ${EXPENSE_CATS[x.category].label}${x.category !== 'dinamis' ? ' · ' + (x.status === 'paid' ? '<span class="text-teal-600">Lunas</span>' : '<span class="text-rust-600">Belum bayar</span>') : ''}</p>
           </div>
         </div>
-        <span class="font-mono text-sm font-semibold text-rust-600 shrink-0">- ${U.fmtIDR(x.amount)}</span>
+        <div class="flex items-center justify-between gap-3">
+          <span class="font-mono text-sm font-semibold text-rust-600">- ${U.fmtIDR(x.amount)}</span>
+          ${x.attachmentUrl ? `<a href="javascript:void(0)" onclick="event.preventDefault(); event.stopPropagation(); window.__cashApp.openAttachmentPreview('${x.attachmentUrl}')" class="text-[12px] font-semibold text-teal-700 underline">Lihat bukti</a>` : ''}
+        </div>
       </div>`
               )
               .join('')
@@ -1465,7 +1534,7 @@ export default function Home({ initialView = 'dashboard' }) {
           ? items
               .map(
                 (x) => `
-      <div data-edit="${x.id}" class="flex items-center justify-between gap-3 p-3.5 rounded-xl border border-line bg-white hover:border-teal-300 cursor-pointer transition">
+      <div data-edit="${x.id}" class="flex flex-col gap-3 p-3.5 rounded-xl border border-line bg-white hover:border-teal-300 cursor-pointer transition">
         <div class="flex items-center gap-3 min-w-0">
           <span class="w-2.5 h-2.5 rounded-full shrink-0" style="background:${INCOME_CATS[x.category].color}"></span>
           <div class="min-w-0">
@@ -1473,7 +1542,10 @@ export default function Home({ initialView = 'dashboard' }) {
             <p class="text-[12px] text-inksoft">${U.fmtDateID(x.date)} · ${INCOME_CATS[x.category].label}</p>
           </div>
         </div>
-        <span class="font-mono text-sm font-semibold text-teal-700 shrink-0">+ ${U.fmtIDR(x.amount)}</span>
+        <div class="flex items-center justify-between gap-3">
+          <span class="font-mono text-sm font-semibold text-teal-700">+ ${U.fmtIDR(x.amount)}</span>
+          ${x.attachmentUrl ? `<a href="javascript:void(0)" onclick="event.preventDefault(); event.stopPropagation(); window.__cashApp.openAttachmentPreview('${x.attachmentUrl}')" class="text-[12px] font-semibold text-teal-700 underline">Lihat bukti</a>` : ''}
+        </div>
       </div>`
               )
               .join('')
@@ -1502,7 +1574,7 @@ export default function Home({ initialView = 'dashboard' }) {
           ? sorted
               .map(
                 (x) => `
-      <div data-edit="${x.id}" class="flex items-center justify-between gap-3 p-3.5 rounded-xl border border-line bg-white hover:border-teal-300 cursor-pointer transition">
+      <div data-edit="${x.id}" class="flex flex-col gap-3 p-3.5 rounded-xl border border-line bg-white hover:border-teal-300 cursor-pointer transition">
         <div class="flex items-center gap-3 min-w-0">
           <span class="w-2.5 h-2.5 rounded-full shrink-0" style="background:${ALLOCATION_CATS[x.category].color}"></span>
           <div class="min-w-0">
@@ -1510,7 +1582,10 @@ export default function Home({ initialView = 'dashboard' }) {
             <p class="text-[12px] text-inksoft">${U.fmtDateID(x.date)} · ${ALLOCATION_CATS[x.category].label}</p>
           </div>
         </div>
-        <span class="font-mono text-sm font-semibold text-amber-600 shrink-0">${U.fmtIDR(x.amount)}</span>
+        <div class="flex items-center justify-between gap-3">
+          <span class="font-mono text-sm font-semibold text-amber-600">${U.fmtIDR(x.amount)}</span>
+          ${x.attachmentUrl ? `<a href="javascript:void(0)" onclick="event.preventDefault(); event.stopPropagation(); window.__cashApp.openAttachmentPreview('${x.attachmentUrl}')" class="text-[12px] font-semibold text-teal-700 underline">Lihat bukti</a>` : ''}
+        </div>
       </div>`
               )
               .join('')
@@ -1650,50 +1725,14 @@ export default function Home({ initialView = 'dashboard' }) {
       }
     }
 
-    const app = new App(initialView);
-    
-    // Start progress bar animation
-    const isSplashAlreadyShown = (() => {
-      try {
-        return sessionStorage.getItem('cmm:splashShown') === '1';
-      } catch (_) {
-        return false;
-      }
-    })();
-
-    const startProgress = () => {
-      const progressBar = document.querySelector('.splash-progress-bar::after');
-      const progressText = document.getElementById('progressPercent');
-      const startTime = Date.now();
-      const duration = 50000; // 50 seconds in ms
-
-      const updateProgress = () => {
-        const elapsed = Date.now() - startTime;
-        const percent = Math.min(Math.round((elapsed / duration) * 100), 100);
-        
-        if (progressText) {
-          progressText.textContent = percent;
-        }
-
-        if (elapsed < duration) {
-          requestAnimationFrame(updateProgress);
-        }
+    if (!window.__cashApp) {
+      const app = new App(initialView);
+      window.__cashApp = app;
+      const startApp = async () => {
+        await app.init();
       };
-
-      updateProgress();
-    };
-
-    if (!isSplashAlreadyShown) {
-      startProgress();
-    } else {
-      const splash = document.getElementById('splashOverlay');
-      if (splash) {
-        splash.classList.add('splash-hidden');
-        setTimeout(() => splash.remove(), 10);
-      }
+      startApp();
     }
-    app.init();
-    window.__cashApp = app;
   }, [initialView]);
 
   return (
@@ -2094,6 +2133,77 @@ export default function Home({ initialView = 'dashboard' }) {
   </form>
 </div>
 
+{/* ============ EXPENSE FORM MODAL ============ */}
+<div id="expenseModal" className="modal-backdrop fixed inset-0 bg-ink/40 z-40 items-end md:items-center justify-center overflow-y-auto py-6">
+  <form id="expenseForm" className="bg-white rounded-t-2xl md:rounded-2xl w-full md:w-[440px] p-5 space-y-3.5 max-h-[92vh] overflow-y-auto">
+    <div className="flex items-center justify-between">
+      <h3 className="font-display font-bold text-[15px]">Catat Pengeluaran</h3>
+      <button type="button" className="modal-close text-inksoft text-xl leading-none">×</button>
+    </div>
+    <input type="hidden" id="exp_id" />
+    <div>
+      <label className="text-[12.5px] font-medium text-inksoft">Jenis Pengeluaran</label>
+      <select id="exp_category" className="w-full mt-1 border border-line rounded-xl h-11 px-3 text-sm bg-white">
+        <option value="tetap">Tetap (rutin, jumlah konstan)</option>
+        <option value="berkala">Berkala (di luar siklus bulanan)</option>
+        <option value="dinamis">Dinamis / Variabel</option>
+      </select>
+    </div>
+    <div className="grid grid-cols-2 gap-3">
+      <div>
+        <label className="text-[12.5px] font-medium text-inksoft">Kategori</label>
+        <input id="exp_sub" list="exp_sub_list" className="w-full mt-1 border border-line rounded-xl h-11 px-3 text-sm" placeholder="Pilih / ketik" />
+        <datalist id="exp_sub_list"></datalist>
+      </div>
+      <div>
+        <label className="text-[12.5px] font-medium text-inksoft">Frekuensi</label>
+        <select id="exp_freq" className="w-full mt-1 border border-line rounded-xl h-11 px-3 text-sm bg-white"></select>
+      </div>
+    </div>
+    <div className="grid grid-cols-2 gap-3">
+      <div>
+        <label className="text-[12.5px] font-medium text-inksoft">Jumlah (Rp)</label>
+        <input id="exp_amount" type="number" min="0" step="1" required className="w-full mt-1 border border-line rounded-xl h-11 px-3 text-sm font-mono" placeholder="0" />
+      </div>
+      <div>
+        <label className="text-[12.5px] font-medium text-inksoft">Tanggal</label>
+        <input id="exp_date" type="date" required className="w-full mt-1 border border-line rounded-xl h-11 px-3 text-sm" />
+      </div>
+    </div>
+    <div id="exp_status_wrap" className="grid grid-cols-2 gap-3">
+      <div>
+        <label className="text-[12.5px] font-medium text-inksoft">Status Bayar</label>
+        <select id="exp_status" className="w-full mt-1 border border-line rounded-xl h-11 px-3 text-sm bg-white">
+          <option value="unpaid">Belum Dibayar</option>
+          <option value="paid">Sudah Dibayar</option>
+        </select>
+      </div>
+      <div className="flex items-end pb-2.5">
+        <label className="flex items-center gap-2 text-[12.5px] text-inksoft">
+          <input id="exp_estimate" type="checkbox" className="w-4 h-4 rounded border-line accent-teal-700" />
+          Ini estimasi (belum aktual)
+        </label>
+      </div>
+    </div>
+    <div>
+      <label className="text-[12.5px] font-medium text-inksoft">Catatan (opsional)</label>
+      <input id="exp_note" className="w-full mt-1 border border-line rounded-xl h-11 px-3 text-sm" placeholder="mis. bayar via transfer BCA" />
+    </div>
+    <div>
+      <label className="text-[12.5px] font-medium text-inksoft">Lampiran bukti (opsional)</label>
+      <input id="exp_attachment" type="file" accept="image/*,application/pdf" className="w-full mt-1" />
+      <div id="exp_attachment_preview" className="mt-2 text-sm"></div>
+    </div>
+    <div className="flex gap-2 pt-1">
+      <button type="button" id="exp_delete" className="hidden items-center gap-1.5 text-rust-600 text-sm font-semibold px-4 h-11 rounded-xl border border-rust-200 hover:bg-rust-50 transition">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.3" strokeLinecap="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4h6v2"/></svg>
+        Hapus
+      </button>
+      <button type="submit" className="flex-1 bg-teal-700 hover:bg-teal-800 text-white text-sm font-semibold rounded-xl h-11 transition">Simpan</button>
+    </div>
+  </form>
+</div>
+
 {/* ============ INCOME FORM MODAL ============ */}
 <div id="incomeModal" className="modal-backdrop fixed inset-0 bg-ink/40 z-40 items-end md:items-center justify-center overflow-y-auto py-6">
   <form id="incomeForm" className="bg-white rounded-t-2xl md:rounded-2xl w-full md:w-[440px] p-5 space-y-3.5 max-h-[92vh] overflow-y-auto">
@@ -2132,6 +2242,7 @@ export default function Home({ initialView = 'dashboard' }) {
     <div>
       <label className="text-[12.5px] font-medium text-inksoft">Lampiran bukti (opsional)</label>
       <input id="inc_attachment" type="file" accept="image/*,application/pdf" className="w-full mt-1" />
+      <div id="inc_attachment_preview" className="mt-2 text-sm"></div>
     </div>
     <div className="flex gap-2 pt-1">
       <button type="button" id="inc_delete" className="hidden text-rust-600 text-sm font-semibold px-4 h-11 rounded-xl border border-rust-200">Hapus</button>
@@ -2176,6 +2287,11 @@ export default function Home({ initialView = 'dashboard' }) {
       <label className="text-[12.5px] font-medium text-inksoft">Catatan (opsional)</label>
       <input id="alc_note" className="w-full mt-1 border border-line rounded-xl h-11 px-3 text-sm" />
     </div>
+    <div>
+      <label className="text-[12.5px] font-medium text-inksoft">Lampiran bukti (opsional)</label>
+      <input id="alc_attachment" type="file" accept="image/*,application/pdf" className="w-full mt-1" />
+      <div id="alc_attachment_preview" className="mt-2 text-sm"></div>
+    </div>
     <div className="flex gap-2 pt-1">
       <button type="button" id="alc_delete" className="hidden text-rust-600 text-sm font-semibold px-4 h-11 rounded-xl border border-rust-200">Hapus</button>
       <button type="submit" className="flex-1 bg-teal-700 hover:bg-teal-800 text-white text-sm font-semibold rounded-xl h-11">Simpan</button>
@@ -2183,13 +2299,38 @@ export default function Home({ initialView = 'dashboard' }) {
   </form>
 </div>
 
+{/* ============ ATTACHMENT PREVIEW ============ */}
+<div id="attachmentPreviewModal" className="modal-backdrop fixed inset-0 bg-ink/50 z-50 items-center justify-center overflow-y-auto py-6">
+  <div className="bg-white rounded-2xl w-full max-w-3xl p-5 md:p-6 space-y-4 shadow-2xl">
+    <div className="flex items-center justify-between">
+      <div>
+        <p id="attachmentPreviewTitle" className="text-base font-semibold text-ink">Pratinjau Bukti</p>
+        <p className="text-[12px] text-inksoft">Gunakan tombol tutup untuk kembali.</p>
+      </div>
+      <button type="button" className="modal-close text-inksoft text-xl leading-none">×</button>
+    </div>
+    <div id="attachmentPreviewContent" className="min-h-[280px] rounded-2xl bg-surface border border-line p-3"></div>
+  </div>
+</div>
+
 {/* ============ CONFIRM DELETE ============ */}
-<div id="confirmModal" className="modal-backdrop fixed inset-0 bg-ink/40 z-50 items-center justify-center">
-  <div className="bg-white rounded-2xl w-[300px] p-5 text-center space-y-3">
-    <p className="text-sm text-ink">Hapus data ini? Tindakan tidak bisa dibatalkan.</p>
-    <div className="flex gap-2">
-      <button id="confirmCancel" className="flex-1 h-10 rounded-xl border border-line text-sm font-medium">Batal</button>
-      <button id="confirmOk" className="flex-1 h-10 rounded-xl bg-rust-600 text-white text-sm font-semibold">Hapus</button>
+<div id="confirmModal" className="modal-backdrop fixed inset-0 bg-ink/50 z-50 items-center justify-center">
+  <div className="bg-white rounded-2xl w-[320px] p-6 text-center space-y-4 shadow-2xl">
+    <div className="w-14 h-14 rounded-2xl bg-rust-50 flex items-center justify-center mx-auto">
+      <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#CE5A32" strokeWidth="2" strokeLinecap="round">
+        <polyline points="3 6 5 6 21 6"/>
+        <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/>
+        <path d="M10 11v6M14 11v6"/>
+        <path d="M9 6V4h6v2"/>
+      </svg>
+    </div>
+    <div>
+      <p className="font-display font-bold text-[15px] text-ink">Hapus data ini?</p>
+      <p className="text-[12.5px] text-inksoft mt-1">Data yang dihapus tidak bisa dikembalikan.</p>
+    </div>
+    <div className="flex gap-2.5">
+      <button id="confirmCancel" className="flex-1 h-11 rounded-xl border border-line text-sm font-medium text-ink hover:bg-surface transition">Batal</button>
+      <button id="confirmOk" className="flex-1 h-11 rounded-xl bg-rust-600 hover:bg-rust-700 text-white text-sm font-semibold transition">Ya, Hapus</button>
     </div>
   </div>
 </div>

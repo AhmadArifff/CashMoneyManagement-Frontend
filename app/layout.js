@@ -23,15 +23,6 @@ export default function RootLayout({ children }) {
         <link rel="apple-touch-icon" href="/asset/image/logo.png" />
       </head>
       <body>
-        <div id="splashOverlay" className="splash-overlay">
-          <div className="splash-inner">
-            <img src="/asset/image/logo%20splash%20screen.png" alt="CashMoney Management" className="splash-logo" />
-            <div className="splash-progress-container">
-              <div className="splash-progress-bar"></div>
-              <p className="splash-progress-text"><span id="progressPercent">0</span>%</p>
-            </div>
-          </div>
-        </div>
         {children}
       </body>
     </html>
