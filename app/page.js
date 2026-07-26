@@ -29,26 +29,22 @@ export default function Home({ initialView = 'dashboard' }) {
       setIsLandingVisible(false);
     }
 
-    // Unregister semua service worker lama dulu untuk mencegah konflik cache
-    if ('serviceWorker' in navigator) {
-      navigator.serviceWorker.getRegistrations().then((registrations) => {
-        const unregisterAll = registrations.map((r) => r.unregister());
-        Promise.all(unregisterAll).then(() => {
-          // Hapus semua cache lama
-          caches.keys().then((keys) => {
-            return Promise.all(keys.map((k) => caches.delete(k)));
-          }).then(() => {
-            // Daftarkan ulang SW versi terbaru
-            navigator.serviceWorker
-              .register('/sw.js')
-              .then((registration) => {
-                console.log('Service worker registered:', registration.scope);
-              })
-              .catch((error) => {
-                console.warn('Service worker registration failed:', error);
-              });
+    // Registrasi Service Worker hanya pada mode produksi agar tidak mengganggu HMR dev server (404 chunks)
+    if (process.env.NODE_ENV === 'production' && typeof window !== 'undefined' && 'serviceWorker' in navigator) {
+      window.addEventListener('load', () => {
+        navigator.serviceWorker
+          .register('/sw.js')
+          .then((registration) => {
+            console.log('Service worker registered:', registration.scope);
+          })
+          .catch((error) => {
+            console.warn('Service worker registration failed:', error);
           });
-        });
+      });
+    } else if (typeof window !== 'undefined' && 'serviceWorker' in navigator) {
+      // Unregister service worker saat development agar Next.js dev server tidak 404 pada HMR/chunks
+      navigator.serviceWorker.getRegistrations().then((registrations) => {
+        registrations.forEach((r) => r.unregister());
       });
     }
 
@@ -981,6 +977,20 @@ export default function Home({ initialView = 'dashboard' }) {
           this.openModal('loginModal');
         });
         document.getElementById('registerForm')?.addEventListener('submit', (e) => this.registerSubmit(e));
+
+        document.querySelectorAll('[data-toggle-password]').forEach((btn) => {
+          btn.addEventListener('click', () => {
+            const targetId = btn.dataset.togglePassword;
+            const input = document.getElementById(targetId);
+            if (input) {
+              const isPwd = input.type === 'password';
+              input.type = isPwd ? 'text' : 'password';
+              btn.innerHTML = isPwd
+                ? `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></svg>`
+                : `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>`;
+            }
+          });
+        });
 
         const userTileEl = document.getElementById('userTile');
         const userDropdownEl = document.getElementById('userDropdown');
@@ -2562,67 +2572,170 @@ export default function Home({ initialView = 'dashboard' }) {
 </div>
 
 {/* ============ LOGIN MODAL ============ */}
-<div id="loginModal" className="modal-backdrop fixed inset-0 bg-slate-950/80 backdrop-blur-md z-50 items-end md:items-center justify-center">
-  <form id="loginForm" className="bg-slate-900 border border-slate-700/80 text-slate-100 rounded-t-2xl md:rounded-2xl w-full md:w-96 p-6 space-y-4 shadow-2xl">
-    <div className="flex items-center justify-between">
-      <div>
-        <h3 className="font-display font-extrabold text-lg text-white">Masuk ke CashMoney</h3>
-        <p className="text-xs text-slate-400">Kelola keuangan Anda dengan terstruktur</p>
+<div id="loginModal" className="modal-backdrop fixed inset-0 bg-slate-950/80 backdrop-blur-xl z-50 items-center justify-center p-4">
+  <form id="loginForm" className="bg-slate-900/95 border border-slate-700/80 text-slate-100 rounded-3xl w-full max-w-md p-7 md:p-8 space-y-5 shadow-2xl shadow-teal-950/50 relative overflow-hidden backdrop-blur-2xl">
+    {/* Decorative background glow */}
+    <div className="absolute -top-16 -right-16 w-44 h-44 bg-teal-500/10 rounded-full blur-3xl pointer-events-none"></div>
+    <div className="absolute -bottom-16 -left-16 w-44 h-44 bg-emerald-500/10 rounded-full blur-3xl pointer-events-none"></div>
+
+    <div className="flex items-start justify-between relative z-10">
+      <div className="flex items-center gap-3">
+        <div className="w-12 h-12 rounded-2xl bg-gradient-to-tr from-teal-500 to-emerald-400 p-0.5 shadow-lg shadow-teal-500/25 shrink-0 flex items-center justify-center">
+          <div className="w-full h-full bg-slate-950 rounded-[14px] flex items-center justify-center text-teal-400">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+          </div>
+        </div>
+        <div>
+          <h3 className="font-display font-extrabold text-xl text-white tracking-tight">Selamat Datang Kembali</h3>
+          <p className="text-xs text-slate-400 mt-0.5">Kelola akun finansial pribadi &amp; keluarga</p>
+        </div>
       </div>
-      <button type="button" id="loginClose" className="modal-close text-slate-400 hover:text-white text-2xl leading-none">×</button>
+      <button type="button" id="loginClose" className="modal-close w-8 h-8 rounded-xl bg-slate-800/80 border border-slate-700/80 flex items-center justify-center text-slate-400 hover:text-white hover:border-slate-600 transition text-lg leading-none shrink-0 ml-2">×</button>
     </div>
-    <div>
-      <label className="text-[12.5px] font-medium text-slate-300">Email</label>
-      <input id="login_email" type="email" required className="w-full mt-1.5 border border-slate-800 rounded-xl h-11 px-3.5 text-sm bg-slate-950 text-white focus:border-teal-500 focus:outline-none" placeholder="nama@email.com" />
+
+    <div className="space-y-4 relative z-10 pt-1">
+      <div>
+        <label className="text-[12.5px] font-bold text-slate-300">Alamat Email</label>
+        <div className="relative mt-1.5">
+          <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-teal-400">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>
+          </span>
+          <input id="login_email" type="email" required className="w-full pl-10 pr-4 h-12 border border-slate-800 rounded-xl text-sm bg-slate-950/80 text-white placeholder-slate-500 focus:border-teal-500 focus:ring-2 focus:ring-teal-500/20 focus:outline-none transition-all" placeholder="nama@email.com" />
+        </div>
+      </div>
+
+      <div>
+        <div className="flex items-center justify-between">
+          <label className="text-[12.5px] font-bold text-slate-300">Kata Sandi</label>
+        </div>
+        <div className="relative mt-1.5">
+          <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-teal-400">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+          </span>
+          <input id="login_password" type="password" required className="w-full pl-10 pr-10 h-12 border border-slate-800 rounded-xl text-sm bg-slate-950/80 text-white placeholder-slate-500 focus:border-teal-500 focus:ring-2 focus:ring-teal-500/20 focus:outline-none transition-all" placeholder="••••••••" />
+          <button type="button" data-toggle-password="login_password" className="absolute right-3.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-white transition" title="Tampilkan/Sembunyikan password">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+          </button>
+        </div>
+      </div>
     </div>
-    <div>
-      <label className="text-[12.5px] font-medium text-slate-300">Password</label>
-      <input id="login_password" type="password" required className="w-full mt-1.5 border border-slate-800 rounded-xl h-11 px-3.5 text-sm bg-slate-950 text-white focus:border-teal-500 focus:outline-none" placeholder="••••••••" />
+
+    <div className="flex items-center gap-2 p-3 rounded-xl bg-teal-500/10 border border-teal-500/20 text-[11.5px] text-teal-300 font-medium relative z-10">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="shrink-0 text-teal-400"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><polyline points="9 12 11 14 15 10"/></svg>
+      <span>Enkripsi 256-bit standar industri &amp; data aman tersimpan.</span>
     </div>
-    <div className="text-xs text-slate-400">
-      <button type="button" id="registerLink" className="font-semibold text-teal-400 hover:underline">Belum punya akun? Daftar sekarang</button>
-    </div>
-    <div className="flex gap-3 pt-2">
-      <button type="button" id="loginCancel" className="text-slate-300 text-sm font-medium px-4 h-11 rounded-xl border border-slate-700 bg-slate-800/80 hover:bg-slate-800">Batal</button>
-      <button type="submit" className="flex-1 bg-gradient-to-r from-teal-500 to-emerald-500 hover:from-teal-400 hover:to-emerald-400 text-slate-950 text-sm font-bold rounded-xl h-11 shadow-lg shadow-teal-500/25 transition">Masuk</button>
+
+    <div className="space-y-3 pt-1 relative z-10">
+      <div className="flex items-center gap-3">
+        <button type="button" id="loginCancel" className="text-slate-300 text-sm font-semibold px-4 h-12 rounded-xl border border-slate-700 bg-slate-800/80 hover:bg-slate-800 transition">Batal</button>
+        <button type="submit" className="flex-1 bg-gradient-to-r from-teal-500 via-emerald-500 to-teal-400 hover:from-teal-400 hover:to-emerald-400 text-slate-950 text-sm font-extrabold rounded-xl h-12 shadow-lg shadow-teal-500/25 active:scale-[0.99] transition-all flex items-center justify-center gap-2">
+          <span>Masuk ke Akun</span>
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>
+        </button>
+      </div>
+
+      <p className="text-xs text-slate-400 text-center font-medium pt-1">
+        Belum memiliki akun?{' '}
+        <button type="button" id="registerLink" className="text-teal-400 font-bold hover:underline ml-0.5">Daftar Akun Baru</button>
+      </p>
     </div>
   </form>
 </div>
 
 {/* ============ REGISTER MODAL ============ */}
-<div id="registerModal" className="modal-backdrop fixed inset-0 bg-slate-950/80 backdrop-blur-md z-50 items-center justify-center overflow-y-auto py-6">
-  <form id="registerForm" className="bg-slate-900 border border-slate-700/80 text-slate-100 rounded-2xl w-full max-w-md p-6 space-y-4 shadow-2xl max-h-[92vh] overflow-y-auto">
-    <div className="flex items-center justify-between">
-      <div>
-        <h3 className="font-display font-extrabold text-xl text-white">Daftar Akun Baru</h3>
-        <p className="text-xs text-slate-400">Bergabung untuk kebebasan finansial Anda</p>
+<div id="registerModal" className="modal-backdrop fixed inset-0 bg-slate-950/80 backdrop-blur-xl z-50 items-center justify-center p-4 overflow-y-auto">
+  <form id="registerForm" className="bg-slate-900/95 border border-slate-700/80 text-slate-100 rounded-3xl w-full max-w-lg p-7 md:p-8 space-y-5 shadow-2xl shadow-teal-950/50 relative overflow-hidden backdrop-blur-2xl max-h-[92vh] overflow-y-auto">
+    {/* Decorative background glow */}
+    <div className="absolute -top-16 -left-16 w-44 h-44 bg-teal-500/10 rounded-full blur-3xl pointer-events-none"></div>
+
+    <div className="flex items-start justify-between relative z-10">
+      <div className="flex items-center gap-3">
+        <div className="w-12 h-12 rounded-2xl bg-gradient-to-tr from-emerald-500 to-teal-400 p-0.5 shadow-lg shadow-emerald-500/25 shrink-0 flex items-center justify-center">
+          <div className="w-full h-full bg-slate-950 rounded-[14px] flex items-center justify-center text-emerald-400">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round"><path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="8.5" cy="7" r="4"/><line x1="20" y1="8" x2="20" y2="14"/><line x1="23" y1="11" x2="17" y2="11"/></svg>
+          </div>
+        </div>
+        <div>
+          <h3 className="font-display font-extrabold text-xl text-white tracking-tight">Daftar Akun Baru</h3>
+          <p className="text-xs text-slate-400 mt-0.5">Bergabung gratis &amp; mulai atur target keuangan</p>
+        </div>
       </div>
-      <button type="button" id="registerClose" className="modal-close text-slate-400 hover:text-white text-2xl leading-none">×</button>
+      <button type="button" id="registerClose" className="modal-close w-8 h-8 rounded-xl bg-slate-800/80 border border-slate-700/80 flex items-center justify-center text-slate-400 hover:text-white hover:border-slate-600 transition text-lg leading-none shrink-0 ml-2">×</button>
     </div>
-    <div className="space-y-3">
+
+    <div className="space-y-3.5 relative z-10 pt-1">
       <div>
-        <label className="text-xs font-medium text-slate-300">Nama Lengkap</label>
-        <input id="register_name" type="text" required className="w-full mt-1 border border-slate-800 rounded-xl h-11 px-3.5 text-sm bg-slate-950 text-white focus:border-teal-500 focus:outline-none" placeholder="Nama Anda" />
+        <label className="text-[12.5px] font-bold text-slate-300">Nama Lengkap</label>
+        <div className="relative mt-1.5">
+          <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-teal-400">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+          </span>
+          <input id="register_name" type="text" required className="w-full pl-10 pr-4 h-12 border border-slate-800 rounded-xl text-sm bg-slate-950/80 text-white placeholder-slate-500 focus:border-teal-500 focus:ring-2 focus:ring-teal-500/20 focus:outline-none transition-all" placeholder="Contoh: Ahmad Ariff" />
+        </div>
       </div>
+
       <div>
-        <label className="text-xs font-medium text-slate-300">Email</label>
-        <input id="register_email" type="email" required className="w-full mt-1 border border-slate-800 rounded-xl h-11 px-3.5 text-sm bg-slate-950 text-white focus:border-teal-500 focus:outline-none" placeholder="nama@email.com" />
+        <label className="text-[12.5px] font-bold text-slate-300">Alamat Email</label>
+        <div className="relative mt-1.5">
+          <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-teal-400">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>
+          </span>
+          <input id="register_email" type="email" required className="w-full pl-10 pr-4 h-12 border border-slate-800 rounded-xl text-sm bg-slate-950/80 text-white placeholder-slate-500 focus:border-teal-500 focus:ring-2 focus:ring-teal-500/20 focus:outline-none transition-all" placeholder="nama@email.com" />
+        </div>
       </div>
+
       <div>
-        <label className="text-xs font-medium text-slate-300">Password</label>
-        <input id="register_password" type="password" required className="w-full mt-1 border border-slate-800 rounded-xl h-11 px-3.5 text-sm bg-slate-950 text-white focus:border-teal-500 focus:outline-none" placeholder="••••••••" />
+        <label className="text-[12.5px] font-bold text-slate-300">Kata Sandi</label>
+        <div className="relative mt-1.5">
+          <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-teal-400">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+          </span>
+          <input id="register_password" type="password" required className="w-full pl-10 pr-10 h-12 border border-slate-800 rounded-xl text-sm bg-slate-950/80 text-white placeholder-slate-500 focus:border-teal-500 focus:ring-2 focus:ring-teal-500/20 focus:outline-none transition-all" placeholder="Minimal 8 karakter" />
+          <button type="button" data-toggle-password="register_password" className="absolute right-3.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-white transition" title="Tampilkan/Sembunyikan password">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+          </button>
+        </div>
       </div>
+
       <div>
-        <label className="text-xs font-medium text-slate-300">Konfirmasi Password</label>
-        <input id="register_password_confirmation" type="password" required className="w-full mt-1 border border-slate-800 rounded-xl h-11 px-3.5 text-sm bg-slate-950 text-white focus:border-teal-500 focus:outline-none" placeholder="••••••••" />
+        <label className="text-[12.5px] font-bold text-slate-300">Konfirmasi Kata Sandi</label>
+        <div className="relative mt-1.5">
+          <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-teal-400">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><polyline points="9 12 11 14 15 10"/></svg>
+          </span>
+          <input id="register_password_confirmation" type="password" required className="w-full pl-10 pr-10 h-12 border border-slate-800 rounded-xl text-sm bg-slate-950/80 text-white placeholder-slate-500 focus:border-teal-500 focus:ring-2 focus:ring-teal-500/20 focus:outline-none transition-all" placeholder="Ulangi kata sandi" />
+          <button type="button" data-toggle-password="register_password_confirmation" className="absolute right-3.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-white transition" title="Tampilkan/Sembunyikan password">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+          </button>
+        </div>
       </div>
     </div>
-    <div className="text-xs text-slate-400">
-      <button type="button" id="registerSwitchLogin" className="font-semibold text-teal-400 hover:underline">Sudah punya akun? Masuk</button>
+
+    <div className="grid grid-cols-3 gap-2 py-1 relative z-10">
+      <div className="flex items-center gap-1.5 p-2 rounded-xl bg-slate-800/60 border border-slate-700/60 text-[11px] text-slate-300">
+        <span className="text-emerald-400 font-bold">✓</span> Budgeting 3 Cat
+      </div>
+      <div className="flex items-center gap-1.5 p-2 rounded-xl bg-slate-800/60 border border-slate-700/60 text-[11px] text-slate-300">
+        <span className="text-emerald-400 font-bold">✓</span> Target Savings
+      </div>
+      <div className="flex items-center gap-1.5 p-2 rounded-xl bg-slate-800/60 border border-slate-700/60 text-[11px] text-slate-300">
+        <span className="text-emerald-400 font-bold">✓</span> Cloud Sync
+      </div>
     </div>
-    <div className="flex gap-3 pt-2">
-      <button type="button" id="registerCancel" className="text-slate-300 text-sm font-medium px-4 h-11 rounded-xl border border-slate-700 bg-slate-800/80 hover:bg-slate-800">Batal</button>
-      <button type="submit" className="flex-1 bg-gradient-to-r from-teal-500 to-emerald-500 hover:from-teal-400 hover:to-emerald-400 text-slate-950 text-sm font-bold rounded-xl h-11 shadow-lg shadow-teal-500/25 transition">Daftar Akun</button>
+
+    <div className="space-y-3 pt-1 relative z-10">
+      <div className="flex items-center gap-3">
+        <button type="button" id="registerCancel" className="text-slate-300 text-sm font-semibold px-4 h-12 rounded-xl border border-slate-700 bg-slate-800/80 hover:bg-slate-800 transition">Batal</button>
+        <button type="submit" className="flex-1 bg-gradient-to-r from-teal-500 via-emerald-500 to-teal-400 hover:from-teal-400 hover:to-emerald-400 text-slate-950 text-sm font-extrabold rounded-xl h-12 shadow-lg shadow-teal-500/25 active:scale-[0.99] transition-all flex items-center justify-center gap-2">
+          <span>Daftar Akun Baru</span>
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>
+        </button>
+      </div>
+
+      <p className="text-xs text-slate-400 text-center font-medium pt-1">
+        Sudah memiliki akun?{' '}
+        <button type="button" id="registerSwitchLogin" className="text-teal-400 font-bold hover:underline ml-0.5">Masuk ke Akun</button>
+      </p>
     </div>
   </form>
 </div>
