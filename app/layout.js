@@ -3,7 +3,6 @@ import './globals.css';
 export const metadata = {
   title: 'CashMoneyManagement — Kelola Uangmu',
   description: 'CashMoneyManagement - kelola keuangan harian kamu dengan mudah',
-  themeColor: '#0f766e',
   icons: [
     { rel: 'icon', url: '/icons/icon-192.svg' },
     { rel: 'apple-touch-icon', url: '/icons/icon-192.svg' },
@@ -12,7 +11,7 @@ export const metadata = {
 
 export default function RootLayout({ children }) {
   return (
-    <html lang="id">
+    <html lang="id" suppressHydrationWarning>
       <head>
         <link rel="manifest" href="/manifest.json" />
         <meta name="theme-color" content="#0f766e" />

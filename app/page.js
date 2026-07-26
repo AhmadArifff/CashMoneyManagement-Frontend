@@ -1,21 +1,33 @@
 'use client';
 
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import flatpickr from 'flatpickr';
 import { Chart, registerables } from 'chart.js';
 import html2canvas from 'html2canvas';
 import { jsPDF } from 'jspdf';
+import LandingPage from './components/LandingPage';
 
 Chart.register(...registerables);
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api';
 
 export default function Home({ initialView = 'dashboard' }) {
+  const [isLandingVisible, setIsLandingVisible] = useState(true);
+
   useEffect(() => {
     if (typeof window === 'undefined') return;
     window.Chart = Chart;
     window.flatpickr = flatpickr;
     window.html2canvas = html2canvas;
     window.jspdf = { jsPDF };
+
+    window.__onAuthChange = (isLoggedIn) => {
+      setIsLandingVisible(!isLoggedIn);
+    };
+
+    const token = localStorage.getItem('cashmoney:token');
+    if (token) {
+      setIsLandingVisible(false);
+    }
 
     // Unregister semua service worker lama dulu untuk mencegah konflik cache
     if ('serviceWorker' in navigator) {
@@ -173,6 +185,7 @@ export default function Home({ initialView = 'dashboard' }) {
       category: item.category,
       subcategory: item.subcategory,
       amount: item.amount,
+      target_amount: item.targetAmount || 0,
       date: item.date,
       note: item.note,
     });
@@ -182,6 +195,9 @@ export default function Home({ initialView = 'dashboard' }) {
       category: item.category,
       subcategory: item.subcategory,
       amount: Number(item.amount),
+      targetAmount: Number(item.target_amount || 0),
+      remainingAmount: Number(item.remaining_amount || (item.target_amount > item.amount ? item.target_amount - item.amount : 0)),
+      progressPercentage: Number(item.progress_percentage || (item.target_amount > 0 ? Math.min(100, Math.round((item.amount / item.target_amount) * 100)) : 0)),
       date: item.date,
       note: item.note || '',
       attachmentPath: item.attachment_path || '',
@@ -453,6 +469,7 @@ export default function Home({ initialView = 'dashboard' }) {
         this.tokenKey = 'cashmoney:token';
         this.userKey = 'cashmoney:user';
         this.user = null;
+        this.profile = null;
         this.inited = false;
         this.setupRepoKeys();
         const today = new Date();
@@ -481,9 +498,14 @@ export default function Home({ initialView = 'dashboard' }) {
       updateUserDisplay() {
         const userTile = document.getElementById('userTile');
         const userName = document.getElementById('userNameDisplay');
+        const dName = document.getElementById('userDropdownName');
+        const dEmail = document.getElementById('userDropdownEmail');
         if (!userTile || !userName) return;
         if (this.user) {
-          userName.textContent = `Halo, ${this.user.name}`;
+          const shortName = this.user.name ? this.user.name.split(' ')[0] : 'User';
+          userName.textContent = `Halo, ${shortName}`;
+          if (dName) dName.textContent = this.user.name || 'User';
+          if (dEmail) dEmail.textContent = this.user.email || '';
           userTile.classList.remove('hidden');
         } else {
           userTile.classList.add('hidden');
@@ -492,14 +514,131 @@ export default function Home({ initialView = 'dashboard' }) {
       }
       updateAuthStatus() {
         const btn = document.getElementById('authBtn');
-        if (btn) {
-          if (this.token) {
-            btn.textContent = 'Keluar';
-            btn.classList.add('bg-teal-50', 'text-teal-700', 'border-teal-300');
-          } else {
+        const userTile = document.getElementById('userTile');
+        if (this.token) {
+          if (btn) btn.classList.add('hidden');
+          if (userTile) userTile.classList.remove('hidden');
+        } else {
+          if (btn) {
+            btn.classList.remove('hidden');
             btn.textContent = 'Masuk';
-            btn.classList.remove('bg-teal-50', 'text-teal-700', 'border-teal-300');
           }
+          if (userTile) userTile.classList.add('hidden');
+        }
+      }
+      async fetchProfile() {
+        if (!this.token) return null;
+        try {
+          const res = await fetch(`${API_BASE}/profile`, {
+            headers: { 'Authorization': `Bearer ${this.token}`, Accept: 'application/json' },
+          });
+          if (!res.ok) return null;
+          const json = await res.json();
+          this.profile = json?.data ?? json;
+          return this.profile;
+        } catch (err) {
+          return null;
+        }
+      }
+      isProfileComplete() {
+        if (!this.profile) return false;
+        const phone = (this.profile.phone_number || '').trim();
+        const job = (this.profile.job_title || '').trim();
+        const emp = (this.profile.employment_type || '').trim();
+        return Boolean(phone && (job || emp));
+      }
+      async checkProfileGuard() {
+        if (!this.token) return true;
+        await this.fetchProfile();
+        if (!this.isProfileComplete()) {
+          this.openProfileModal(true);
+          toast('Lengkapi data profil kamu terlebih dahulu untuk membuka semua menu.', 'err');
+          return false;
+        }
+        return true;
+      }
+      openProfileModal(force = false) {
+        const modal = document.getElementById('profileModal');
+        if (!modal) return;
+
+        const p = this.profile || {};
+        if (document.getElementById('prof_name')) document.getElementById('prof_name').value = this.user?.name || '';
+        if (document.getElementById('prof_email')) document.getElementById('prof_email').value = this.user?.email || '';
+        if (document.getElementById('prof_phone')) document.getElementById('prof_phone').value = p.phone_number || '';
+        if (document.getElementById('prof_employment')) document.getElementById('prof_employment').value = p.employment_type || 'karyawan';
+        if (document.getElementById('prof_job')) document.getElementById('prof_job').value = p.job_title || '';
+        if (document.getElementById('prof_company')) document.getElementById('prof_company').value = p.company_name || '';
+        if (document.getElementById('prof_income')) document.getElementById('prof_income').value = p.monthly_income_estimate || '';
+
+        const closeBtn = document.getElementById('profClose');
+        const cancelBtn = document.getElementById('profCancel');
+        const banner = document.getElementById('profWarningBanner');
+
+        if (force) {
+          if (closeBtn) closeBtn.style.display = 'none';
+          if (cancelBtn) cancelBtn.style.display = 'none';
+          if (banner) banner.classList.remove('hidden');
+        } else {
+          if (closeBtn) closeBtn.style.display = '';
+          if (cancelBtn) cancelBtn.style.display = '';
+          if (banner) banner.classList.add('hidden');
+        }
+
+        this.openModal('profileModal');
+      }
+      async submitProfile(e) {
+        e.preventDefault();
+        if (!this.token) return;
+
+        const name = document.getElementById('prof_name')?.value.trim();
+        const phone_number = document.getElementById('prof_phone')?.value.trim();
+        const employment_type = document.getElementById('prof_employment')?.value;
+        const job_title = document.getElementById('prof_job')?.value.trim();
+        const company_name = document.getElementById('prof_company')?.value.trim();
+        const monthly_income_estimate = Number(document.getElementById('prof_income')?.value || 0);
+
+        if (!phone_number) {
+          return toast('Nomor telepon / WA wajib diisi', 'err');
+        }
+        if (!job_title && !employment_type) {
+          return toast('Status Pekerjaan / Jabatan wajib diisi', 'err');
+        }
+
+        try {
+          const res = await fetch(`${API_BASE}/profile`, {
+            method: 'PUT',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${this.token}`,
+              'Accept': 'application/json'
+            },
+            body: JSON.stringify({
+              name,
+              phone_number,
+              employment_type,
+              job_title,
+              company_name,
+              monthly_income_estimate
+            })
+          });
+
+          const json = await res.json();
+          if (!res.ok) {
+            throw new Error(json?.message || 'Gagal menyimpan profil');
+          }
+
+          this.profile = json?.data ?? json;
+          if (this.user) {
+            this.user.name = name || this.user.name;
+            await this.setUser(this.user);
+          }
+
+          this.closeModal('profileModal');
+          toast('Profil berhasil disimpan & dilengkapi! 🎉');
+          this.renderAll();
+        } catch (err) {
+          console.error(err);
+          toast(err.message || 'Gagal menyimpan profil', 'err');
         }
       }
       async loadAllData() {
@@ -558,9 +697,12 @@ export default function Home({ initialView = 'dashboard' }) {
         await this.incomes.persist();
         await this.allocations.persist();
 
+        if (typeof window !== 'undefined' && window.__onAuthChange) {
+          window.__onAuthChange(false);
+        }
+
         this.renderAll();
 
-        this.openModal('loginModal', true);
         toast('Berhasil keluar sesi');
       }
       async init() {
@@ -569,6 +711,7 @@ export default function Home({ initialView = 'dashboard' }) {
         this.bindNav();
         this.bindModals();
         this.bindRangePicker();
+        this.bindAttachmentPreviews();
         this.switchView(this.initialView);
         
         this.token = await this.store.get(this.tokenKey);
@@ -597,6 +740,7 @@ export default function Home({ initialView = 'dashboard' }) {
         }
 
         await this.loadAllData();
+        await this.checkProfileGuard();
       }
       hideLoading() {
         // fade out built-in loading overlay (if present)
@@ -608,6 +752,11 @@ export default function Home({ initialView = 'dashboard' }) {
         }
       }
       switchView(view) {
+        if (this.token && this.profile && !this.isProfileComplete()) {
+          this.openProfileModal(true);
+          toast('Lengkapi data profil kamu terlebih dahulu untuk membuka menu', 'err');
+          return;
+        }
         const main = document.querySelector('main');
         // Lightweight fade effect between views (no splash, just a subtle transition)
         if (main) {
@@ -651,10 +800,21 @@ export default function Home({ initialView = 'dashboard' }) {
       }
       renderAlertDropdown() {
         const unpaid = this.expenses.items
-          .filter((x) => (x.category === 'tetap' || x.category === 'berkala') && x.status === 'unpaid' && !x.isEstimate)
+          .filter((x) => x.status === 'unpaid' && !x.isEstimate)
           .sort((a, b) => a.date.localeCompare(b.date));
         const countEl = document.getElementById('alertDropdownCount');
+        const alertDot = document.getElementById('alertDot');
         if (countEl) countEl.textContent = unpaid.length;
+        if (alertDot) {
+          alertDot.textContent = unpaid.length;
+          if (unpaid.length > 0) {
+            alertDot.classList.remove('hidden');
+            alertDot.classList.add('flex');
+          } else {
+            alertDot.classList.add('hidden');
+            alertDot.classList.remove('flex');
+          }
+        }
         const listEl = document.getElementById('alertDropdownList');
         if (!listEl) return;
         if (!unpaid.length) {
@@ -666,31 +826,31 @@ export default function Home({ initialView = 'dashboard' }) {
           return;
         }
         listEl.innerHTML = `
-          <div class="border-b border-line px-4 py-3">
-            <p class="text-sm font-semibold text-ink">Notifikasi Tagihan</p>
-            <p class="text-[12px] text-inksoft">Gunakan tombol ✓ di sebelah kanan untuk menandai lunas langsung dari notifikasi.</p>
+          <div class="border-b border-slate-800 px-4 py-3 bg-slate-900">
+            <p class="text-sm font-bold text-white">Notifikasi Semua Tagihan (${unpaid.length})</p>
+            <p class="text-[12px] text-slate-400">Klik tombol ✓ Lunas untuk menyelesaikan tagihan langsung dari sini.</p>
           </div>
-          <div class="space-y-2 p-2">
+          <div class="space-y-2 p-2.5">
             ${unpaid.map((x) => {
               const days = U.daysBetween(x.date, U.todayStr());
               const overdue = days > 0;
               const dueBadge = overdue
-                ? `<span class="inline-flex items-center gap-1 text-[10.5px] font-semibold bg-rust-50 text-rust-600 rounded-full px-2 py-0.5"><svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>Terlambat ${days}h</span>`
-                : `<span class="inline-flex items-center gap-1 text-[10.5px] font-semibold bg-amber-50 text-amber-600 rounded-full px-2 py-0.5"><svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>${U.fmtDateShort(x.date)}</span>`;
-              return `<div class="flex items-center gap-2.5 px-3 py-2.5 rounded-2xl border border-line bg-white shadow-sm">
-                <div class="w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${overdue ? 'bg-rust-50' : 'bg-amber-50'}">
-                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="${overdue ? '#973A19' : '#B87511'}" strokeWidth="2"><path d="M3 10h18M7 15h4"/><rect x="3" y="5" width="18" height="14" rx="2"/></svg>
+                ? `<span class="inline-flex items-center gap-1 text-[10.5px] font-bold bg-rose-500/20 text-rose-300 border border-rose-500/30 rounded-full px-2 py-0.5"><svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>Terlambat ${days}h</span>`
+                : `<span class="inline-flex items-center gap-1 text-[10.5px] font-bold bg-amber-500/20 text-amber-300 border border-amber-500/30 rounded-full px-2 py-0.5"><svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>${U.fmtDateShort(x.date)}</span>`;
+              return `<div class="flex items-center justify-between gap-2.5 px-3.5 py-3 rounded-xl border border-slate-800 bg-slate-950/80 shadow-md hover:border-teal-500/40 transition">
+                <div class="w-9 h-9 rounded-xl flex items-center justify-center shrink-0 ${overdue ? 'bg-rose-500/20 border border-rose-500/30' : 'bg-amber-500/20 border border-amber-500/30'}">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="${overdue ? '#FB7185' : '#FBBF24'}" strokeWidth="2"><path d="M3 10h18M7 15h4"/><rect x="3" y="5" width="18" height="14" rx="2"/></svg>
                 </div>
-                <div class="min-w-0">
-                  <p class="text-sm font-semibold text-ink truncate">${x.subcategory}</p>
-                  <div class="mt-1 flex flex-wrap items-center gap-2 text-[11px] text-inksoft">
+                <div class="min-w-0 flex-1">
+                  <p class="text-xs font-bold text-white truncate">${x.subcategory}</p>
+                  <div class="mt-0.5 flex flex-wrap items-center gap-1.5 text-[10.5px] text-slate-400">
                     ${dueBadge}
                     <span>${EXPENSE_CATS[x.category]?.label ?? x.category}</span>
                   </div>
                 </div>
-                <div class="flex flex-col items-end gap-2 shrink-0">
-                  <span class="font-mono text-sm font-semibold text-ink">${U.fmtIDR(x.amount)}</span>
-                  <button data-mark-paid="${x.id}" class="rounded-full border border-teal-200 bg-teal-50 px-3 py-1 text-[11px] font-semibold text-teal-700 hover:bg-teal-100 transition">✓ Lunas</button>
+                <div class="flex flex-col items-end gap-1 shrink-0">
+                  <span class="font-mono text-xs font-bold text-rose-400">${U.fmtIDR(x.amount)}</span>
+                  <button data-mark-paid="${x.id}" class="rounded-lg border border-teal-500/30 bg-teal-500/20 px-2.5 py-1 text-[11px] font-bold text-teal-300 hover:bg-teal-500/30 transition">✓ Lunas</button>
                 </div>
               </div>`;
             }).join('')}
@@ -698,9 +858,10 @@ export default function Home({ initialView = 'dashboard' }) {
         `;
         // Bind mark-as-paid buttons
         listEl.querySelectorAll('[data-mark-paid]').forEach((btn) => {
-          btn.addEventListener('click', (e) => {
+          btn.addEventListener('click', async (e) => {
             e.stopPropagation();
-            this.markPaid(btn.dataset.markPaid);
+            await this.markPaid(btn.dataset.markPaid);
+            this.renderAlertDropdown();
           });
         });
       }
@@ -762,6 +923,14 @@ export default function Home({ initialView = 'dashboard' }) {
           document.querySelectorAll('#incomeCatTabs [data-cat]').forEach((b) => b.classList.toggle('active', b === btn));
           this.renderIncomeList();
         }));
+
+        document.getElementById('expenseSearch')?.addEventListener('input', () => this.renderExpenseList());
+        document.getElementById('incomeSearch')?.addEventListener('input', () => this.renderIncomeList());
+        document.getElementById('allocationSearch')?.addEventListener('input', () => this.renderAllocations());
+
+        document.getElementById('expensePerPage')?.addEventListener('change', () => this.renderExpenseList());
+        document.getElementById('incomePerPage')?.addEventListener('change', () => this.renderIncomeList());
+        document.getElementById('allocationPerPage')?.addEventListener('change', () => this.renderAllocations());
       }
       bindRangePicker() {
         const updateLabel = () => {
@@ -813,7 +982,50 @@ export default function Home({ initialView = 'dashboard' }) {
         });
         document.getElementById('registerForm')?.addEventListener('submit', (e) => this.registerSubmit(e));
 
-        document.getElementById('quickAddBtn')?.addEventListener('click', () => this.openModal('quickAddModal'));
+        const userTileEl = document.getElementById('userTile');
+        const userDropdownEl = document.getElementById('userDropdown');
+        if (userTileEl && userDropdownEl) {
+          userTileEl.addEventListener('click', (e) => {
+            e.stopPropagation();
+            userDropdownEl.classList.toggle('hidden');
+          });
+          document.addEventListener('click', (e) => {
+            if (!userDropdownEl.contains(e.target) && !userTileEl.contains(e.target)) {
+              userDropdownEl.classList.add('hidden');
+            }
+          });
+        }
+        document.getElementById('userDropdownProfileBtn')?.addEventListener('click', () => {
+          document.getElementById('userDropdown')?.classList.add('hidden');
+          this.openProfileModal(false);
+        });
+        document.getElementById('userDropdownLogoutBtn')?.addEventListener('click', async () => {
+          document.getElementById('userDropdown')?.classList.add('hidden');
+          if (confirm('Apakah Anda yakin ingin keluar dari sesi?')) {
+            await this.logout();
+          }
+        });
+        document.getElementById('profClose')?.addEventListener('click', () => {
+          if (this.token && !this.isProfileComplete()) {
+            return toast('Lengkapi profil terlebih dahulu!', 'err');
+          }
+          this.closeModal('profileModal');
+        });
+        document.getElementById('profCancel')?.addEventListener('click', () => {
+          if (this.token && !this.isProfileComplete()) {
+            return toast('Lengkapi profil terlebih dahulu!', 'err');
+          }
+          this.closeModal('profileModal');
+        });
+        document.getElementById('profileForm')?.addEventListener('submit', (e) => this.submitProfile(e));
+
+        document.getElementById('quickAddBtn')?.addEventListener('click', () => {
+          if (this.token && !this.isProfileComplete()) {
+            this.openProfileModal(true);
+            return toast('Lengkapi profil kamu terlebih dahulu', 'err');
+          }
+          this.openModal('quickAddModal');
+        });
         document.getElementById('quickAddCancel')?.addEventListener('click', () => this.closeModal('quickAddModal'));
         document.querySelectorAll('[data-add]').forEach((btn) => btn.addEventListener('click', () => {
           this.closeModal('quickAddModal');
@@ -821,10 +1033,20 @@ export default function Home({ initialView = 'dashboard' }) {
         }));
         document.querySelectorAll('.modal-close').forEach((btn) => btn.addEventListener('click', (e) => {
           const parent = e.target.closest('.modal-backdrop');
-          if (parent) this.closeModal(parent.id);
+          if (parent) {
+            if (parent.id === 'profileModal' && this.token && !this.isProfileComplete()) {
+              return toast('Lengkapi profil terlebih dahulu!', 'err');
+            }
+            this.closeModal(parent.id);
+          }
         }));
         document.querySelectorAll('.modal-backdrop').forEach((m) => m.addEventListener('click', (e) => {
-          if (e.target === m) this.closeModal(m.id);
+          if (e.target === m) {
+            if (m.id === 'profileModal' && this.token && !this.isProfileComplete()) {
+              return toast('Lengkapi profil terlebih dahulu!', 'err');
+            }
+            this.closeModal(m.id);
+          }
         }));
         const expCat = document.getElementById('exp_category');
         expCat?.addEventListener('change', () => this.refreshExpenseFormFields());
@@ -834,19 +1056,19 @@ export default function Home({ initialView = 'dashboard' }) {
         document.getElementById('exp_delete')?.addEventListener('click', () => this.confirm(async () => {
           await this.expenses.remove(document.getElementById('exp_id').value);
           this.closeModal('expenseModal');
-          this.renderAll();
+          await this.loadAllData();
           toast('Pengeluaran dihapus');
         }));
         document.getElementById('inc_delete')?.addEventListener('click', () => this.confirm(async () => {
           await this.incomes.remove(document.getElementById('inc_id').value);
           this.closeModal('incomeModal');
-          this.renderAll();
+          await this.loadAllData();
           toast('Pemasukan dihapus');
         }));
         document.getElementById('alc_delete')?.addEventListener('click', () => this.confirm(async () => {
           await this.allocations.remove(document.getElementById('alc_id').value);
           this.closeModal('allocationModal');
-          this.renderAll();
+          await this.loadAllData();
           toast('Alokasi dihapus');
         }));
         document.getElementById('confirmCancel')?.addEventListener('click', () => this.closeModal('confirmModal'));
@@ -880,11 +1102,15 @@ export default function Home({ initialView = 'dashboard' }) {
           await this.store.set(this.tokenKey, token);
           this.token = token;
           await this.setUser(json.user);
+          if (typeof window !== 'undefined' && window.__onAuthChange) {
+            window.__onAuthChange(true);
+          }
           toast('Login berhasil');
           this.closeModal('loginModal');
 
           // reload backend data
           await this.loadAllData();
+          await this.checkProfileGuard();
         } catch (err) {
           console.error(err);
           toast(err.message || 'Login gagal', 'err');
@@ -920,10 +1146,14 @@ export default function Home({ initialView = 'dashboard' }) {
           await this.store.set(this.tokenKey, token);
           this.token = token;
           await this.setUser(json.user);
+          if (typeof window !== 'undefined' && window.__onAuthChange) {
+            window.__onAuthChange(true);
+          }
           toast('Registrasi berhasil');
           this.closeModal('registerModal');
 
           await this.loadAllData();
+          await this.checkProfileGuard();
         } catch (err) {
           console.error(err);
           toast(err.message || 'Registrasi gagal', 'err');
@@ -1027,6 +1257,7 @@ export default function Home({ initialView = 'dashboard' }) {
           const expDelBtn = document.getElementById('exp_delete');
           if (expDelBtn) { expDelBtn.classList.add('hidden'); expDelBtn.style.display = ''; }
           document.getElementById('exp_date').value = U.todayStr();
+          this.showExistingAttachment('expAttachPreview', null);
           this.refreshExpenseFormFields();
           if (existingId) {
             const it = this.expenses.find(existingId);
@@ -1041,7 +1272,7 @@ export default function Home({ initialView = 'dashboard' }) {
               document.getElementById('exp_status').value = it.status;
               document.getElementById('exp_estimate').checked = !!it.isEstimate;
               document.getElementById('exp_note').value = it.note || '';
-              this.setAttachmentPreview('exp_attachment_preview', it.attachmentUrl);
+              this.showExistingAttachment('expAttachPreview', it.attachmentUrl);
               const delBtn = document.getElementById('exp_delete');
               if (delBtn) {
                 delBtn.classList.remove('hidden');
@@ -1056,6 +1287,7 @@ export default function Home({ initialView = 'dashboard' }) {
           document.getElementById('inc_id').value = '';
           document.getElementById('inc_delete')?.classList.add('hidden');
           document.getElementById('inc_date').value = U.todayStr();
+          this.showExistingAttachment('incAttachPreview', null);
           document.getElementById('inc_sub_list').innerHTML = INCOME_CATS.earned.subs.map((s) => `<option value="${s}">`).join('');
           document.getElementById('inc_category').onchange = () => {
             document.getElementById('inc_sub_list').innerHTML = INCOME_CATS[document.getElementById('inc_category').value].subs.map((s) => `<option value="${s}">`).join('');
@@ -1070,8 +1302,9 @@ export default function Home({ initialView = 'dashboard' }) {
               document.getElementById('inc_amount').value = it.amount;
               document.getElementById('inc_date').value = it.date;
               document.getElementById('inc_note').value = it.note || '';
-              this.setAttachmentPreview('inc_attachment_preview', it.attachmentUrl);
-              document.getElementById('inc_delete')?.classList.remove('hidden');
+              this.showExistingAttachment('incAttachPreview', it.attachmentUrl);
+              const incDelBtn = document.getElementById('inc_delete');
+              if (incDelBtn) { incDelBtn.classList.remove('hidden'); incDelBtn.style.display = 'flex'; }
             }
           }
           this.openModal('incomeModal');
@@ -1081,6 +1314,8 @@ export default function Home({ initialView = 'dashboard' }) {
           document.getElementById('alc_id').value = '';
           document.getElementById('alc_delete')?.classList.add('hidden');
           document.getElementById('alc_date').value = U.todayStr();
+          if (document.getElementById('alc_target')) document.getElementById('alc_target').value = '';
+          this.showExistingAttachment('alcAttachPreview', null);
           document.getElementById('alc_sub_list').innerHTML = ALLOCATION_CATS.darurat.subs.map((s) => `<option value="${s}">`).join('');
           document.getElementById('alc_category').onchange = () => {
             document.getElementById('alc_sub_list').innerHTML = ALLOCATION_CATS[document.getElementById('alc_category').value].subs.map((s) => `<option value="${s}">`).join('');
@@ -1093,13 +1328,15 @@ export default function Home({ initialView = 'dashboard' }) {
               document.getElementById('alc_category').onchange();
               document.getElementById('alc_sub').value = it.subcategory;
               document.getElementById('alc_amount').value = it.amount;
+              if (document.getElementById('alc_target')) document.getElementById('alc_target').value = it.targetAmount || '';
               document.getElementById('alc_date').value = it.date;
               document.getElementById('alc_note').value = it.note || '';
-              this.setAttachmentPreview('alc_attachment_preview', it.attachmentUrl);
-              document.getElementById('alc_delete')?.classList.remove('hidden');
+              this.showExistingAttachment('alcAttachPreview', it.attachmentUrl);
+              const alcDelBtn = document.getElementById('alc_delete');
+              if (alcDelBtn) { alcDelBtn.classList.remove('hidden'); alcDelBtn.style.display = 'flex'; }
             }
           } else {
-            this.setAttachmentPreview('alc_attachment_preview', null);
+            this.showExistingAttachment('alcAttachPreview', null);
           }
           this.openModal('allocationModal');
         }
@@ -1162,7 +1399,8 @@ export default function Home({ initialView = 'dashboard' }) {
           if (this.expenses.find(id)) await this.expenses.update(id, data); else await this.expenses.add(data);
         }
         this.closeModal('expenseModal');
-        this.renderAll();
+        this.ensureRangeIncludes(data.date);
+        await this.loadAllData();
         toast('Pengeluaran tersimpan');
       }
       async submitIncome(e) {
@@ -1215,7 +1453,8 @@ export default function Home({ initialView = 'dashboard' }) {
           if (this.incomes.find(id)) await this.incomes.update(id, data); else await this.incomes.add(data);
         }
         this.closeModal('incomeModal');
-        this.renderAll();
+        this.ensureRangeIncludes(data.date);
+        await this.loadAllData();
         toast('Pemasukan tersimpan');
       }
       async submitAllocation(e) {
@@ -1227,6 +1466,7 @@ export default function Home({ initialView = 'dashboard' }) {
           category: cat,
           subcategory: document.getElementById('alc_sub').value || ALLOCATION_CATS[cat].subs[ALLOCATION_CATS[cat].subs.length - 1],
           amount: Number(document.getElementById('alc_amount').value || 0),
+          targetAmount: Number(document.getElementById('alc_target')?.value || 0),
           date: document.getElementById('alc_date').value,
           note: document.getElementById('alc_note').value,
           createdAt: Date.now(),
@@ -1240,6 +1480,7 @@ export default function Home({ initialView = 'dashboard' }) {
           fd.append('category', data.category);
           fd.append('subcategory', data.subcategory);
           fd.append('amount', String(data.amount));
+          fd.append('target_amount', String(data.targetAmount));
           fd.append('date', data.date);
           fd.append('note', data.note || '');
           fd.append('attachment', file);
@@ -1269,12 +1510,13 @@ export default function Home({ initialView = 'dashboard' }) {
         }
 
         this.closeModal('allocationModal');
-        this.renderAll();
+        this.ensureRangeIncludes(data.date);
+        await this.loadAllData();
         toast('Alokasi tersimpan');
       }
       async markPaid(id) {
         await this.expenses.update(id, { status: 'paid' });
-        this.renderAll();
+        await this.loadAllData();
         toast('Ditandai lunas');
       }
       toggleAlertDropdown() {
@@ -1307,6 +1549,7 @@ export default function Home({ initialView = 'dashboard' }) {
           this.renderExpenseList();
           this.renderIncomeList();
           this.renderAllocations();
+          this.renderAlertDropdown();
           if (document.getElementById('view-reports')?.classList.contains('active')) this.renderReports();
         } catch (e) {
           console.error('Error rendering dashboard components:', e);
@@ -1329,11 +1572,16 @@ export default function Home({ initialView = 'dashboard' }) {
         const totalExp = Aggregator.total(exp);
         const totalAlc = Aggregator.total(alc);
         const balance = totalInc - totalExp - totalAlc;
-        document.getElementById('dashPeriodLabel').textContent = `Periode: ${U.fmtDateID(this.range.start)} – ${U.fmtDateID(this.range.end)}`;
-        document.getElementById('sumIncome').textContent = U.fmtIDR(totalInc);
-        document.getElementById('sumExpense').textContent = U.fmtIDR(totalExp);
-        document.getElementById('sumAllocation').textContent = U.fmtIDR(totalAlc);
-        document.getElementById('sumBalance').textContent = U.fmtIDR(balance);
+        const dashLabel = document.getElementById('dashPeriodLabel');
+        if (dashLabel) dashLabel.textContent = `Periode: ${U.fmtDateID(this.range.start)} – ${U.fmtDateID(this.range.end)}`;
+        const sInc = document.getElementById('sumIncome');
+        if (sInc) sInc.textContent = U.fmtIDR(totalInc);
+        const sExp = document.getElementById('sumExpense');
+        if (sExp) sExp.textContent = U.fmtIDR(totalExp);
+        const sAlc = document.getElementById('sumAllocation');
+        if (sAlc) sAlc.textContent = U.fmtIDR(totalAlc);
+        const sBal = document.getElementById('sumBalance');
+        if (sBal) sBal.textContent = U.fmtIDR(balance);
         const card = document.getElementById('sumBalanceCard');
         const badge = document.getElementById('balanceBadge');
         if (card && badge) {
@@ -1366,27 +1614,27 @@ export default function Home({ initialView = 'dashboard' }) {
         const listEl = document.getElementById('unpaidList');
         if (listEl) {
           if (!unpaid.length) {
-            listEl.innerHTML = `<div class="flex items-center gap-2.5 py-4 px-3 rounded-xl bg-teal-50 border border-teal-100">
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#1F6F5C" strokeWidth="2"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
-              <p class="text-sm font-medium text-teal-700">Semua tagihan sudah lunas! 🎉</p>
+            listEl.innerHTML = `<div class="flex items-center gap-2.5 py-4 px-4 rounded-xl bg-teal-500/10 border border-teal-500/30">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#2DD4BF" strokeWidth="2"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+              <p class="text-sm font-semibold text-teal-300">Semua tagihan sudah lunas! 🎉</p>
             </div>`;
           } else {
             listEl.innerHTML = unpaid.map((x) => {
               const days = U.daysBetween(x.date, U.todayStr());
               const overdue = days > 0;
-              return `<div class="flex items-center justify-between gap-3 p-3 rounded-xl border ${overdue ? 'border-rust-200 bg-rust-50/30' : 'border-line'} transition">
+              return `<div class="flex items-center justify-between gap-3 p-3.5 rounded-xl border ${overdue ? 'border-rose-500/40 bg-rose-500/10' : 'border-slate-800 bg-slate-900/90'} transition shadow-md">
                 <div class="flex items-center gap-3 min-w-0">
-                  <div class="w-8 h-8 rounded-xl flex items-center justify-center shrink-0 ${overdue ? 'bg-rust-100' : 'bg-amber-50'}">
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="${overdue ? '#973A19' : '#B87511'}" strokeWidth="2.2"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3 10h18M7 15h4"/></svg>
+                  <div class="w-9 h-9 rounded-xl flex items-center justify-center shrink-0 ${overdue ? 'bg-rose-500/20 border border-rose-500/30' : 'bg-amber-500/20 border border-amber-500/30'}">
+                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="${overdue ? '#FB7185' : '#FBBF24'}" strokeWidth="2.2"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3 10h18M7 15h4"/></svg>
                   </div>
                   <div class="min-w-0">
-                    <p class="text-sm font-medium truncate text-ink">${x.subcategory}</p>
-                    <p class="text-[11.5px] ${overdue ? 'text-rust-600 font-semibold' : 'text-inksoft'}">${overdue ? `⚠ Terlambat ${days} hari` : `Jatuh tempo ${U.fmtDateID(x.date)}`} · ${EXPENSE_CATS[x.category]?.label ?? x.category}</p>
+                    <p class="text-sm font-bold truncate text-white">${x.subcategory}</p>
+                    <p class="text-[11.5px] ${overdue ? 'text-rose-400 font-semibold' : 'text-slate-400'}">${overdue ? `⚠ Terlambat ${days} hari` : `Jatuh tempo ${U.fmtDateID(x.date)}`} · ${EXPENSE_CATS[x.category]?.label ?? x.category}</p>
                   </div>
                 </div>
-                <div class="flex items-center gap-2 shrink-0">
-                  <span class="font-mono text-sm font-bold text-ink">${U.fmtIDR(x.amount)}</span>
-                  <button data-mark-paid="${x.id}" class="text-[11.5px] font-semibold text-teal-700 bg-white border border-teal-200 rounded-lg px-2.5 py-1.5 hover:bg-teal-50 hover:border-teal-400 transition">✓ Lunas</button>
+                <div class="flex items-center gap-2.5 shrink-0">
+                  <span class="font-mono text-sm font-bold text-rose-400">${U.fmtIDR(x.amount)}</span>
+                  <button data-mark-paid="${x.id}" class="text-[11.5px] font-bold text-teal-300 bg-teal-500/20 border border-teal-500/30 rounded-lg px-2.5 py-1.5 hover:bg-teal-500/30 transition">✓ Lunas</button>
                 </div>
               </div>`;
             }).join('');
@@ -1495,7 +1743,22 @@ export default function Home({ initialView = 'dashboard' }) {
       renderExpenseList() {
         let items = this.expenses.inRange(this.range.start, this.range.end);
         if (this.expenseFilter !== 'all') items = items.filter((x) => x.category === this.expenseFilter);
+
+        const searchVal = (document.getElementById('expenseSearch')?.value || '').trim().toLowerCase();
+        if (searchVal) {
+          items = items.filter((x) => (x.subcategory || '').toLowerCase().includes(searchVal) || (x.note || '').toLowerCase().includes(searchVal));
+        }
+
         items = items.slice().sort((a, b) => b.date.localeCompare(a.date));
+
+        const perPageVal = document.getElementById('expensePerPage')?.value || '20';
+        if (perPageVal !== 'all') {
+          const limit = parseInt(perPageVal, 10);
+          if (!isNaN(limit) && limit > 0) {
+            items = items.slice(0, limit);
+          }
+        }
+
         const actual = this.expenses.inRange(this.range.start, this.range.end).filter((x) => !x.isEstimate);
         document.getElementById('totTetap').textContent = U.fmtIDR(actual.filter((x) => x.category === 'tetap').reduce((s, x) => s + Number(x.amount), 0));
         document.getElementById('totBerkala').textContent = U.fmtIDR(actual.filter((x) => x.category === 'berkala').reduce((s, x) => s + Number(x.amount), 0));
@@ -1506,90 +1769,139 @@ export default function Home({ initialView = 'dashboard' }) {
           ? items
               .map(
                 (x) => `
-      <div data-edit="${x.id}" class="flex flex-col gap-3 p-3.5 rounded-xl border border-line bg-white hover:border-teal-300 cursor-pointer transition">
+      <div data-edit="${x.id}" class="flex flex-col gap-3 p-4 rounded-2xl border border-slate-800/90 bg-slate-900/90 hover:border-teal-500/50 cursor-pointer transition text-slate-100 backdrop-blur-md shadow-lg">
         <div class="flex items-center gap-3 min-w-0">
           <span class="w-2.5 h-2.5 rounded-full shrink-0" style="background:${EXPENSE_CATS[x.category].color}"></span>
-          <div class="min-w-0">
-            <p class="text-sm font-medium truncate">${x.subcategory}${x.isEstimate ? '<span class="text-[10px] font-semibold text-amber-600 bg-amber-50 rounded-full px-1.5 py-0.5 ml-1">Estimasi</span>' : ''}</p>
-            <p class="text-[12px] text-inksoft">${U.fmtDateID(x.date)} · ${EXPENSE_CATS[x.category].label}${x.category !== 'dinamis' ? ' · ' + (x.status === 'paid' ? '<span class="text-teal-600">Lunas</span>' : '<span class="text-rust-600">Belum bayar</span>') : ''}</p>
+          <div class="min-w-0 flex-1">
+            <p class="text-sm font-bold text-white truncate">${x.subcategory}${x.isEstimate ? '<span class="text-[10px] font-bold text-amber-300 bg-amber-500/20 border border-amber-500/30 rounded-full px-2 py-0.5 ml-1.5">Estimasi</span>' : ''}</p>
+            <p class="text-[12px] text-slate-400 mt-0.5">${U.fmtDateID(x.date)} · ${EXPENSE_CATS[x.category].label}${x.category !== 'dinamis' ? ' · ' + (x.status === 'paid' ? '<span class="text-emerald-400 font-semibold">Lunas</span>' : '<span class="text-rose-400 font-semibold">Belum bayar</span>') : ''}</p>
           </div>
+          ${x.attachmentUrl ? `<button type="button" onclick="event.stopPropagation(); window.__cashApp.openAttachmentPreview('${x.attachmentUrl}')" class="shrink-0 w-8 h-8 rounded-xl bg-teal-500/20 border border-teal-500/30 flex items-center justify-center hover:bg-teal-500/30 transition text-teal-300" title="Lihat bukti"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/></svg></button>` : ''}
         </div>
-        <div class="flex items-center justify-between gap-3">
-          <span class="font-mono text-sm font-semibold text-rust-600">- ${U.fmtIDR(x.amount)}</span>
-          ${x.attachmentUrl ? `<a href="javascript:void(0)" onclick="event.preventDefault(); event.stopPropagation(); window.__cashApp.openAttachmentPreview('${x.attachmentUrl}')" class="text-[12px] font-semibold text-teal-700 underline">Lihat bukti</a>` : ''}
+        <div class="flex items-center justify-between gap-3 pt-1 border-t border-slate-800/60">
+          <span class="font-mono text-base font-bold text-rose-400">- ${U.fmtIDR(x.amount)}</span>
+          ${x.attachmentUrl ? `<span class="text-[11.5px] text-teal-300 font-semibold flex items-center gap-1">📎 Ada bukti</span>` : ''}
         </div>
       </div>`
               )
               .join('')
-          : `<p class="text-sm text-inksoft py-8 text-center">Belum ada data pada periode ini.</p>`;
+          : `<p class="text-sm text-slate-400 py-8 text-center">Belum ada data pengeluaran pada periode ini.</p>`;
         list.querySelectorAll('[data-edit]').forEach((el) => el.addEventListener('click', () => this.openEntryForm('expense', el.dataset.edit)));
       }
       renderIncomeList() {
         let items = this.incomes.inRange(this.range.start, this.range.end);
         if (this.incomeFilter !== 'all') items = items.filter((x) => x.category === this.incomeFilter);
+
+        const searchVal = (document.getElementById('incomeSearch')?.value || '').trim().toLowerCase();
+        if (searchVal) {
+          items = items.filter((x) => (x.subcategory || '').toLowerCase().includes(searchVal) || (x.note || '').toLowerCase().includes(searchVal));
+        }
+
         items = items.slice().sort((a, b) => b.date.localeCompare(a.date));
+
+        const perPageVal = document.getElementById('incomePerPage')?.value || '20';
+        if (perPageVal !== 'all') {
+          const limit = parseInt(perPageVal, 10);
+          if (!isNaN(limit) && limit > 0) {
+            items = items.slice(0, limit);
+          }
+        }
+
         const list = document.getElementById('incomeList');
         if (!list) return;
         list.innerHTML = items.length
           ? items
               .map(
                 (x) => `
-      <div data-edit="${x.id}" class="flex flex-col gap-3 p-3.5 rounded-xl border border-line bg-white hover:border-teal-300 cursor-pointer transition">
+      <div data-edit="${x.id}" class="flex flex-col gap-3 p-4 rounded-2xl border border-slate-800/90 bg-slate-900/90 hover:border-teal-500/50 cursor-pointer transition text-slate-100 backdrop-blur-md shadow-lg">
         <div class="flex items-center gap-3 min-w-0">
           <span class="w-2.5 h-2.5 rounded-full shrink-0" style="background:${INCOME_CATS[x.category].color}"></span>
-          <div class="min-w-0">
-            <p class="text-sm font-medium truncate">${x.subcategory}</p>
-            <p class="text-[12px] text-inksoft">${U.fmtDateID(x.date)} · ${INCOME_CATS[x.category].label}</p>
+          <div class="min-w-0 flex-1">
+            <p class="text-sm font-bold text-white truncate">${x.subcategory}</p>
+            <p class="text-[12px] text-slate-400 mt-0.5">${U.fmtDateID(x.date)} · ${INCOME_CATS[x.category].label}</p>
           </div>
+          ${x.attachmentUrl ? `<button type="button" onclick="event.stopPropagation(); window.__cashApp.openAttachmentPreview('${x.attachmentUrl}')" class="shrink-0 w-8 h-8 rounded-xl bg-teal-500/20 border border-teal-500/30 flex items-center justify-center hover:bg-teal-500/30 transition text-teal-300" title="Lihat bukti"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/></svg></button>` : ''}
         </div>
-        <div class="flex items-center justify-between gap-3">
-          <span class="font-mono text-sm font-semibold text-teal-700">+ ${U.fmtIDR(x.amount)}</span>
-          ${x.attachmentUrl ? `<a href="javascript:void(0)" onclick="event.preventDefault(); event.stopPropagation(); window.__cashApp.openAttachmentPreview('${x.attachmentUrl}')" class="text-[12px] font-semibold text-teal-700 underline">Lihat bukti</a>` : ''}
+        <div class="flex items-center justify-between gap-3 pt-1 border-t border-slate-800/60">
+          <span class="font-mono text-base font-bold text-emerald-400">+ ${U.fmtIDR(x.amount)}</span>
+          ${x.attachmentUrl ? `<span class="text-[11.5px] text-teal-300 font-semibold flex items-center gap-1">📎 Ada bukti</span>` : ''}
         </div>
       </div>`
               )
               .join('')
-          : `<p class="text-sm text-inksoft py-8 text-center">Belum ada data pada periode ini.</p>`;
+          : `<p class="text-sm text-slate-400 py-8 text-center">Belum ada data pemasukan pada periode ini.</p>`;
         list.querySelectorAll('[data-edit]').forEach((el) => el.addEventListener('click', () => this.openEntryForm('income', el.dataset.edit)));
       }
       renderAllocations() {
-        const items = this.allocations.inRange(this.range.start, this.range.end);
+        let items = this.allocations.inRange(this.range.start, this.range.end);
+
+        const searchVal = (document.getElementById('allocationSearch')?.value || '').trim().toLowerCase();
+        if (searchVal) {
+          items = items.filter((x) => (x.subcategory || '').toLowerCase().includes(searchVal) || (x.note || '').toLowerCase().includes(searchVal));
+        }
+
         const byCat = Aggregator.byCategory(items);
         const cardsEl = document.getElementById('allocationCards');
         if (cardsEl) {
           cardsEl.innerHTML = Object.keys(ALLOCATION_CATS)
             .map(
               (k) => `
-      <div class="bg-surface rounded-2xl shadow-card border border-line p-4">
-        <p class="text-[12px] text-inksoft font-medium">${ALLOCATION_CATS[k].label}</p>
-        <p class="font-mono font-bold text-lg mt-1" style="color:${ALLOCATION_CATS[k].color}">${U.fmtIDR(byCat[k] || 0)}</p>
+      <div class="bg-slate-900/80 backdrop-blur-md rounded-2xl border border-slate-800/90 p-4 shadow-lg space-y-1">
+        <p class="text-[12px] text-slate-400 font-medium">${ALLOCATION_CATS[k].label}</p>
+        <p class="font-mono font-extrabold text-xl" style="color:${ALLOCATION_CATS[k].color}">${U.fmtIDR(byCat[k] || 0)}</p>
       </div>`
             )
             .join('');
         }
         const list = document.getElementById('allocationList');
         if (!list) return;
-        const sorted = items.slice().sort((a, b) => b.date.localeCompare(a.date));
+        let sorted = items.slice().sort((a, b) => b.date.localeCompare(a.date));
+
+        const perPageVal = document.getElementById('allocationPerPage')?.value || '20';
+        if (perPageVal !== 'all') {
+          const limit = parseInt(perPageVal, 10);
+          if (!isNaN(limit) && limit > 0) {
+            sorted = sorted.slice(0, limit);
+          }
+        }
         list.innerHTML = sorted.length
           ? sorted
               .map(
-                (x) => `
-      <div data-edit="${x.id}" class="flex flex-col gap-3 p-3.5 rounded-xl border border-line bg-white hover:border-teal-300 cursor-pointer transition">
+                (x) => {
+                  const targetVal = Number(x.targetAmount || 0);
+                  const amtVal = Number(x.amount || 0);
+                  const remVal = targetVal > 0 ? Math.max(0, targetVal - amtVal) : 0;
+                  const pctVal = targetVal > 0 ? Math.min(100, Math.round((amtVal / targetVal) * 100)) : 0;
+
+                  const progressHtml = targetVal > 0
+                    ? `<div class="mt-2 pt-2 border-t border-slate-800/60 space-y-1.5">
+                        <div class="flex items-center justify-between text-[11.5px]">
+                          <span class="text-slate-400">Target: <strong class="text-white font-mono">${U.fmtIDR(targetVal)}</strong></span>
+                          <span class="font-bold ${pctVal >= 100 ? 'text-emerald-400' : 'text-amber-400'}">${pctVal}% ${pctVal >= 100 ? '🎉 Selesai' : `(Sisa ${U.fmtIDR(remVal)})`}</span>
+                        </div>
+                        <div class="w-full bg-slate-950 border border-slate-800 rounded-full h-2 overflow-hidden">
+                          <div class="h-full rounded-full transition-all duration-500 ${pctVal >= 100 ? 'bg-gradient-to-r from-emerald-500 to-teal-400' : 'bg-gradient-to-r from-amber-500 to-teal-500'}" style="width: ${pctVal}%"></div>
+                        </div>
+                      </div>`
+                    : '';
+
+                  return `
+      <div data-edit="${x.id}" class="flex flex-col gap-2.5 p-4 rounded-2xl border border-slate-800/90 bg-slate-900/90 hover:border-teal-500/50 cursor-pointer transition text-slate-100 backdrop-blur-md shadow-lg">
         <div class="flex items-center gap-3 min-w-0">
           <span class="w-2.5 h-2.5 rounded-full shrink-0" style="background:${ALLOCATION_CATS[x.category].color}"></span>
-          <div class="min-w-0">
-            <p class="text-sm font-medium truncate">${x.subcategory}</p>
-            <p class="text-[12px] text-inksoft">${U.fmtDateID(x.date)} · ${ALLOCATION_CATS[x.category].label}</p>
+          <div class="min-w-0 flex-1">
+            <p class="text-sm font-bold text-white truncate">${x.subcategory}</p>
+            <p class="text-[12px] text-slate-400 mt-0.5">${U.fmtDateID(x.date)} · ${ALLOCATION_CATS[x.category].label}</p>
           </div>
+          <span class="font-mono text-base font-bold text-amber-400">${U.fmtIDR(x.amount)}</span>
+          ${x.attachmentUrl ? `<button type="button" onclick="event.stopPropagation(); window.__cashApp.openAttachmentPreview('${x.attachmentUrl}')" class="shrink-0 w-8 h-8 rounded-xl bg-teal-500/20 border border-teal-500/30 flex items-center justify-center hover:bg-teal-500/30 transition text-teal-300" title="Lihat bukti"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/></svg></button>` : ''}
         </div>
-        <div class="flex items-center justify-between gap-3">
-          <span class="font-mono text-sm font-semibold text-amber-600">${U.fmtIDR(x.amount)}</span>
-          ${x.attachmentUrl ? `<a href="javascript:void(0)" onclick="event.preventDefault(); event.stopPropagation(); window.__cashApp.openAttachmentPreview('${x.attachmentUrl}')" class="text-[12px] font-semibold text-teal-700 underline">Lihat bukti</a>` : ''}
-        </div>
-      </div>`
+        ${progressHtml}
+      </div>`;
+                }
               )
               .join('')
-          : `<p class="text-sm text-inksoft py-8 text-center">Belum ada data pada periode ini.</p>`;
+          : `<p class="text-sm text-slate-400 py-8 text-center">Belum ada data dana alokasi pada periode ini.</p>`;
         list.querySelectorAll('[data-edit]').forEach((el) => el.addEventListener('click', () => this.openEntryForm('allocation', el.dataset.edit)));
       }
       renderReports() {
@@ -1713,7 +2025,7 @@ export default function Home({ initialView = 'dashboard' }) {
             pdf.addImage(imgData, 'PNG', 0, position, imgWidth, imgHeight);
             heightLeft -= pageHeight;
           }
-          pdf.save(`Laporan-CashMoney-${this.range.start}_${this.range.end}.pdf`);
+        pdf.save(`Laporan-CashMoney-${this.range.start}_${this.range.end}.pdf`);
           toast('PDF berhasil diunduh');
         } catch (err) {
           console.error(err);
@@ -1723,6 +2035,88 @@ export default function Home({ initialView = 'dashboard' }) {
           btn.disabled = false;
         }
       }
+
+      // ───────────────────────────────────────────────
+      // ATTACHMENT PREVIEW
+      // ───────────────────────────────────────────────
+      openAttachmentPreview(url) {
+        if (!url) return;
+        const modal = document.getElementById('attachmentModal');
+        const imgEl = document.getElementById('attachPreviewImg');
+        const pdfEl = document.getElementById('attachPreviewPdf');
+        const openBtn = document.getElementById('attachOpenTab');
+        if (!modal) return;
+        const isPdf = /\.pdf($|\?)/i.test(url) || url.includes('application/pdf');
+        if (imgEl) imgEl.style.display = isPdf ? 'none' : 'block';
+        if (pdfEl) pdfEl.style.display = isPdf ? 'block' : 'none';
+        if (imgEl && !isPdf) imgEl.src = url;
+        if (pdfEl && isPdf) pdfEl.src = url + '#toolbar=0&view=FitH';
+        if (openBtn) openBtn.href = url;
+        modal.classList.add('active');
+      }
+      closeAttachmentPreview() {
+        const modal = document.getElementById('attachmentModal');
+        if (modal) modal.classList.remove('active');
+        const imgEl = document.getElementById('attachPreviewImg');
+        const pdfEl = document.getElementById('attachPreviewPdf');
+        if (imgEl) imgEl.src = '';
+        if (pdfEl) pdfEl.src = '';
+      }
+
+      // Bind file input → show local preview; and show existing attachment for edit mode
+      bindAttachmentPreviews() {
+        const setupFileInput = (inputId, previewWrapperId) => {
+          const input = document.getElementById(inputId);
+          const wrap = document.getElementById(previewWrapperId);
+          if (!input || !wrap) return;
+          input.addEventListener('change', () => {
+            const file = input.files?.[0];
+            if (!file) { wrap.innerHTML = ''; wrap.classList.add('hidden'); return; }
+            wrap.classList.remove('hidden');
+            if (file.type === 'application/pdf') {
+              wrap.innerHTML = `<div class="flex items-center gap-2.5 p-3 rounded-xl bg-amber-50 border border-amber-100">
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#B87511" stroke-width="2" stroke-linecap="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="9" y1="12" x2="15" y2="12"/><line x1="9" y1="16" x2="15" y2="16"/></svg>
+                <div class="min-w-0"><p class="text-xs font-semibold text-amber-700 truncate">${file.name}</p><p class="text-[11px] text-amber-600">${(file.size / 1024).toFixed(1)} KB • PDF</p></div>
+              </div>`;
+            } else {
+              const reader = new FileReader();
+              reader.onload = (e) => {
+                wrap.innerHTML = `<div class="relative">
+                  <img src="${e.target.result}" alt="preview" class="w-full max-h-48 object-contain rounded-xl border border-line bg-surface" />
+                  <span class="absolute top-1.5 right-1.5 text-[10px] font-semibold bg-ink/60 text-white rounded-full px-2 py-0.5">${(file.size/1024).toFixed(0)}KB</span>
+                </div>`;
+              };
+              reader.readAsDataURL(file);
+            }
+          });
+        };
+        setupFileInput('exp_attachment', 'expAttachPreview');
+        setupFileInput('inc_attachment', 'incAttachPreview');
+        setupFileInput('alc_attachment', 'alcAttachPreview');
+      }
+
+      // Show existing attachment when opening edit form
+      showExistingAttachment(previewWrapperId, attachmentUrl) {
+        const wrap = document.getElementById(previewWrapperId);
+        if (!wrap) return;
+        if (!attachmentUrl) { wrap.innerHTML = ''; wrap.classList.add('hidden'); return; }
+        wrap.classList.remove('hidden');
+        const isPdf = /\.pdf($|\?)/i.test(attachmentUrl);
+        if (isPdf) {
+          wrap.innerHTML = `<div class="flex items-center gap-2.5 p-3 rounded-xl bg-amber-50 border border-amber-100">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#B87511" stroke-width="2" stroke-linecap="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+            <div class="min-w-0 flex-1"><p class="text-xs font-semibold text-amber-700">Bukti PDF tersimpan</p></div>
+            <button type="button" onclick="window.__cashApp.openAttachmentPreview('${attachmentUrl}')" class="text-[11px] font-semibold text-teal-700 bg-teal-50 border border-teal-200 rounded-lg px-2.5 py-1 hover:bg-teal-100 transition">Lihat</button>
+          </div>`;
+        } else {
+          wrap.innerHTML = `<div class="relative rounded-xl overflow-hidden border border-line cursor-pointer group" onclick="window.__cashApp.openAttachmentPreview('${attachmentUrl}')">
+            <img src="${attachmentUrl}" alt="Bukti" class="w-full max-h-40 object-cover" onerror="this.closest('div').classList.add('hidden')" />
+            <div class="absolute inset-0 bg-ink/0 group-hover:bg-ink/20 transition flex items-center justify-center">
+              <span class="opacity-0 group-hover:opacity-100 transition text-xs font-semibold text-white bg-ink/60 rounded-full px-3 py-1">Lihat bukti</span>
+            </div>
+          </div>`;
+        }
+      }
     }
 
     if (!window.__cashApp) {
@@ -1730,72 +2124,117 @@ export default function Home({ initialView = 'dashboard' }) {
       window.__cashApp = app;
       const startApp = async () => {
         await app.init();
+        if (app.token) {
+          setIsLandingVisible(false);
+        }
       };
       startApp();
     }
   }, [initialView]);
 
   return (
-    <div className="min-h-screen text-ink">
-      
-<div id="loadingOverlay" className="fixed inset-0 z-[100] bg-paper flex flex-col items-center justify-center gap-3">
-  <div className="w-10 h-10 border-[3px] border-teal-200 border-t-teal-700 rounded-full animate-spin"></div>
-  <p className="text-sm text-inksoft font-medium">Memuat data kamu...</p>
-</div>
+    <div className="min-h-screen text-slate-100 bg-slate-950">
+      {isLandingVisible && (
+        <div className="fixed inset-0 z-[90] overflow-y-auto bg-slate-950">
+          <LandingPage
+            onOpenLogin={() => {
+              setIsLandingVisible(false);
+              setTimeout(() => {
+                if (window.__cashApp) {
+                  window.__cashApp.openModal('loginModal');
+                }
+              }, 50);
+            }}
+            onOpenRegister={() => {
+              setIsLandingVisible(false);
+              setTimeout(() => {
+                if (window.__cashApp) {
+                  window.__cashApp.openModal('registerModal');
+                }
+              }, 50);
+            }}
+          />
+        </div>
+      )}
 
-<div id="app" className="min-h-screen">
+      <div id="loadingOverlay" className="fixed inset-0 z-[100] bg-slate-950 flex flex-col items-center justify-center gap-3">
+        <div className="w-10 h-10 border-[3px] border-teal-500/30 border-t-teal-400 rounded-full animate-spin"></div>
+        <p className="text-sm text-slate-300 font-medium">Memuat data kamu...</p>
+      </div>
+
+      <div id="app" className="min-h-screen bg-slate-950 text-slate-100 selection:bg-teal-500 selection:text-white">
 
   {/* ============ TOP BAR ============ */}
-  <header className="sticky top-0 z-30 bg-surface/95 backdrop-blur border-b border-line">
+  <header className="sticky top-0 z-30 bg-slate-900/90 backdrop-blur-xl border-b border-slate-800/80">
     <div className="flex items-center justify-between gap-3 px-4 md:px-6 h-16">
-      <div className="flex items-center gap-2.5">
-        <div className="w-9 h-9 rounded-xl bg-teal-700 flex items-center justify-center shrink-0">
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2.2" strokeLinecap="round"><path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
+      <div className="flex items-center gap-2.5 cursor-pointer hover:opacity-90 transition" onClick={() => setIsLandingVisible(true)}>
+        <div className="w-9.5 h-9.5 rounded-xl bg-gradient-to-tr from-teal-600 via-emerald-500 to-teal-400 flex items-center justify-center shrink-0 shadow-lg shadow-teal-500/20">
+          <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="#0F172A" strokeWidth="2.4" strokeLinecap="round"><path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
         </div>
         <div className="hidden sm:block leading-tight">
-          <p className="font-display font-bold text-[15px] text-ink">CashMoneyManagement</p>
-          <p className="text-[11px] text-inksoft -mt-0.5">Cashflow harian → mingguan → bulanan</p>
+          <p className="font-display font-bold text-[15px] bg-gradient-to-r from-white via-slate-100 to-slate-300 bg-clip-text text-transparent">
+            CashMoney<span className="text-teal-400 font-extrabold">.</span>
+          </p>
+          <p className="text-[11px] text-teal-400 font-medium -mt-0.5">← Beranda / Landing Page</p>
         </div>
       </div>
 
       <div className="flex items-center gap-2">
-        <button id="rangeBtn" className="flex items-center gap-2 border border-line rounded-xl px-3 h-10 text-sm bg-white hover:border-teal-400 transition">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#16594A" strokeWidth="2"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4"/></svg>
-          <span id="rangeLabel" className="font-mono text-[12.5px] text-ink whitespace-nowrap"></span>
+        <button id="rangeBtn" className="flex items-center gap-2 border border-slate-700/80 rounded-xl px-3 h-10 text-sm bg-slate-800/90 text-slate-200 hover:border-teal-500/50 transition backdrop-blur-md">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#2DD4BF" strokeWidth="2"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4"/></svg>
+          <span id="rangeLabel" className="font-mono text-[12.5px] text-slate-200 whitespace-nowrap"></span>
         </button>
         <input id="rangeInput" className="hidden" />
 
         <div className="relative">
-          <button id="alertBell" className="relative w-10 h-10 rounded-xl border border-line bg-white flex items-center justify-center hover:border-amber-400 transition">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#4B5A55" strokeWidth="2" strokeLinecap="round"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.7 21a2 2 0 0 1-3.4 0"/></svg>
-            <span id="alertDot" className="hidden absolute -top-1 -right-1 min-w-[18px] h-[18px] px-1 rounded-full bg-rust-500 text-white text-[10px] font-bold items-center justify-center">0</span>
+          <button id="alertBell" className="relative w-10 h-10 rounded-xl border border-slate-700/80 bg-slate-800/90 text-slate-300 flex items-center justify-center hover:border-amber-400/80 transition backdrop-blur-md">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.7 21a2 2 0 0 1-3.4 0"/></svg>
+            <span id="alertDot" className="hidden absolute -top-1 -right-1 min-w-[18px] h-[18px] px-1 rounded-full bg-rose-600 text-white text-[10px] font-bold items-center justify-center shadow-md shadow-rose-600/30">0</span>
           </button>
-          <div id="alertDropdown" className="hidden absolute right-0 top-[calc(100%+8px)] w-80 max-w-[88vw] bg-white rounded-2xl border border-line shadow-lg z-40 max-h-[70vh] overflow-hidden flex flex-col">
-            <div className="px-4 py-3 border-b border-line flex items-center justify-between shrink-0">
-              <p className="font-display font-semibold text-[13.5px]">Tagihan Belum Dibayar</p>
-              <span id="alertDropdownCount" className="text-[11px] font-semibold bg-rust-50 text-rust-600 rounded-full px-2 py-0.5">0</span>
+          <div id="alertDropdown" className="hidden absolute right-0 top-[calc(100%+8px)] w-80 max-w-[88vw] bg-slate-900/95 border border-slate-700/80 shadow-2xl z-40 max-h-[70vh] overflow-hidden flex flex-col backdrop-blur-xl rounded-2xl text-slate-100">
+            <div className="px-4 py-3 border-b border-slate-800 flex items-center justify-between shrink-0 bg-slate-900">
+              <p className="font-display font-semibold text-[13.5px] text-white">Notifikasi Tagihan</p>
+              <span id="alertDropdownCount" className="text-[11px] font-semibold bg-rose-500/20 text-rose-300 border border-rose-500/30 rounded-full px-2 py-0.5">0</span>
             </div>
             <div id="alertDropdownList" className="overflow-y-auto p-2 space-y-1.5"></div>
           </div>
         </div>
 
-        <div id="userTile" className="hidden items-center gap-2 rounded-2xl border border-line bg-white px-3 py-2 text-sm text-inksoft">
-          <span className="font-medium text-ink">Halo,</span>
-          <span id="userNameDisplay" className="font-semibold text-ink"></span>
+        <div className="relative">
+          <div id="userTile" className="hidden items-center gap-2 rounded-2xl border border-slate-700/80 bg-slate-800/90 px-3 py-1.5 text-xs text-slate-300 cursor-pointer hover:border-teal-500/50 transition">
+            <span className="w-6 h-6 rounded-full bg-gradient-to-tr from-teal-500 to-emerald-400 text-slate-950 font-bold flex items-center justify-center text-[10px] shadow-sm">👤</span>
+            <span id="userNameDisplay" className="font-bold text-white text-xs"></span>
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" className="text-slate-400 ml-0.5"><path d="m6 9 6 6 6-6"/></svg>
+          </div>
+
+          <div id="userDropdown" className="hidden absolute right-0 top-[calc(100%+8px)] w-56 bg-slate-900/95 border border-slate-700/80 shadow-2xl z-40 overflow-hidden flex flex-col backdrop-blur-xl rounded-2xl text-slate-100 p-1.5 space-y-1">
+            <div className="px-3 py-2 border-b border-slate-800">
+              <p id="userDropdownName" className="font-bold text-xs text-white truncate"></p>
+              <p id="userDropdownEmail" className="text-[11px] text-slate-400 truncate"></p>
+            </div>
+            <button type="button" id="userDropdownProfileBtn" className="w-full flex items-center gap-2 px-3 py-2 text-xs font-semibold text-slate-200 hover:text-white hover:bg-slate-800/80 rounded-xl transition text-left">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#2DD4BF" strokeWidth="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+              Profil Saya
+            </button>
+            <button type="button" id="userDropdownLogoutBtn" className="w-full flex items-center gap-2 px-3 py-2 text-xs font-semibold text-rose-400 hover:bg-rose-500/10 rounded-xl transition text-left">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+              Keluar / Logout
+            </button>
+          </div>
         </div>
 
-        <button id="authBtn" className="flex items-center gap-1.5 border border-line rounded-xl px-3 h-10 text-sm bg-white hover:border-teal-400 transition">Masuk</button>
+        <button id="authBtn" className="flex items-center gap-1.5 border border-slate-700 rounded-xl px-3 h-10 text-sm bg-slate-800 text-slate-200 hover:text-white transition">Masuk</button>
 
-        <button id="quickAddBtn" className="flex items-center gap-1.5 bg-teal-700 hover:bg-teal-800 transition text-white rounded-xl px-3.5 h-10 text-sm font-semibold">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2.4" strokeLinecap="round"><path d="M12 5v14M5 12h14"/></svg>
-          <span className="hidden sm:inline">Tambah</span>
+        <button id="quickAddBtn" className="flex items-center gap-1.5 bg-gradient-to-r from-teal-500 via-emerald-500 to-teal-400 hover:from-teal-400 hover:to-emerald-400 transition text-slate-950 rounded-xl px-3.5 h-10 text-sm font-bold shadow-lg shadow-teal-500/20">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.8" strokeLinecap="round"><path d="M12 5v14M5 12h14"/></svg>
+          <span className="hidden sm:inline">Tambah Data</span>
         </button>
       </div>
     </div>
 
     {/* alert banner */}
-    <div id="alertBanner" className="hidden border-t border-amber-200 bg-amber-50 px-4 md:px-6 py-2 text-[13px] text-amber-700 flex items-center gap-2 cursor-pointer">
-      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#B87511" strokeWidth="2.3"><path d="M12 9v4M12 17h.01M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0Z"/></svg>
+    <div id="alertBanner" className="hidden border-t border-amber-500/30 bg-amber-500/10 px-4 md:px-6 py-2 text-[13px] text-amber-300 flex items-center gap-2 cursor-pointer backdrop-blur-md">
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#FBBF24" strokeWidth="2.3"><path d="M12 9v4M12 17h.01M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0Z"/></svg>
       <span id="alertBannerText"></span>
       <span className="ml-auto underline font-medium shrink-0">Lihat detail</span>
     </div>
@@ -1803,91 +2242,91 @@ export default function Home({ initialView = 'dashboard' }) {
 
   <div className="flex">
     {/* ============ SIDEBAR (desktop) ============ */}
-    <nav className="hidden md:flex flex-col w-60 shrink-0 border-r border-line bg-white min-h-[calc(100vh-64px)] px-3 py-5 gap-1">
-      <a href="/dashboard" data-view="dashboard" className="nav-link active flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-sm font-medium text-ink hover:bg-teal-50 transition">
-        <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="#101A17" strokeWidth="2"><rect x="3" y="3" width="7" height="9" rx="1.5"/><rect x="14" y="3" width="7" height="5" rx="1.5"/><rect x="14" y="12" width="7" height="9" rx="1.5"/><rect x="3" y="16" width="7" height="5" rx="1.5"/></svg>
+    <nav className="hidden md:flex flex-col w-64 shrink-0 border-r border-slate-800/80 bg-slate-900/95 min-h-[calc(100vh-64px)] px-3.5 py-5 gap-1.5">
+      <a href="/dashboard" data-view="dashboard" className="nav-link active flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-sm font-medium text-slate-300 hover:text-white hover:bg-slate-800/60 transition">
+        <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="3" width="7" height="9" rx="1.5"/><rect x="14" y="3" width="7" height="5" rx="1.5"/><rect x="14" y="12" width="7" height="9" rx="1.5"/><rect x="3" y="16" width="7" height="5" rx="1.5"/></svg>
         Dashboard
       </a>
-      <a href="/expenses" data-view="expenses" className="nav-link flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-sm font-medium text-ink hover:bg-teal-50 transition">
-        <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="#101A17" strokeWidth="2"><path d="M3 10h18M7 15h4"/><rect x="3" y="5" width="18" height="14" rx="2"/></svg>
+      <a href="/expenses" data-view="expenses" className="nav-link flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-sm font-medium text-slate-300 hover:text-white hover:bg-slate-800/60 transition">
+        <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M3 10h18M7 15h4"/><rect x="3" y="5" width="18" height="14" rx="2"/></svg>
         Pengeluaran
       </a>
-      <a href="/incomes" data-view="incomes" className="nav-link flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-sm font-medium text-ink hover:bg-teal-50 transition">
-        <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="#101A17" strokeWidth="2"><path d="M12 19V5M5 12l7-7 7 7"/></svg>
+      <a href="/incomes" data-view="incomes" className="nav-link flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-sm font-medium text-slate-300 hover:text-white hover:bg-slate-800/60 transition">
+        <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M12 19V5M5 12l7-7 7 7"/></svg>
         Pemasukan
       </a>
-      <a href="/allocations" data-view="allocations" className="nav-link flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-sm font-medium text-ink hover:bg-teal-50 transition">
-        <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="#101A17" strokeWidth="2"><path d="M12 2a10 10 0 1 0 10 10"/><path d="M12 2v10l7 7"/></svg>
+      <a href="/allocations" data-view="allocations" className="nav-link flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-sm font-medium text-slate-300 hover:text-white hover:bg-slate-800/60 transition">
+        <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M12 2a10 10 0 1 0 10 10"/><path d="M12 2v10l7 7"/></svg>
         Dana Alokasi
       </a>
-      <a href="/reports" data-view="reports" className="nav-link flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-sm font-medium text-ink hover:bg-teal-50 transition">
-        <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="#101A17" strokeWidth="2"><path d="M8 17V9M13 17V5M18 17v-5"/><rect x="3" y="3" width="18" height="18" rx="2"/></svg>
+      <a href="/reports" data-view="reports" className="nav-link flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-sm font-medium text-slate-300 hover:text-white hover:bg-slate-800/60 transition">
+        <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M8 17V9M13 17V5M18 17v-5"/><rect x="3" y="3" width="18" height="18" rx="2"/></svg>
         Laporan
       </a>
 
-      <div className="mt-auto pt-4 border-t border-line">
-        <p className="text-[11px] text-inksoft px-3.5 leading-relaxed">Data tersimpan otomatis untuk sesi Claude ini.</p>
+      <div className="mt-auto pt-4 border-t border-slate-800/80">
+        <p className="text-[11px] text-slate-400 px-3.5 leading-relaxed">System Status: <span className="text-emerald-400 font-mono font-semibold">Online & Synchronized</span></p>
       </div>
     </nav>
 
     {/* ============ MAIN ============ */}
-    <main className="flex-1 min-w-0 px-4 md:px-6 py-5 pb-28 md:pb-8">
+    <main className="flex-1 min-w-0 px-4 md:px-6 py-5 pb-28 md:pb-8 bg-slate-950">
 
       {/* ---------- DASHBOARD ---------- */}
       <section id="view-dashboard" className="view active space-y-5">
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="font-display text-xl font-bold text-ink">Dashboard</h1>
-            <p id="dashPeriodLabel" className="text-[13px] text-inksoft"></p>
+            <h1 className="font-display text-xl sm:text-2xl font-bold text-white tracking-tight">Dashboard Ringkasan</h1>
+            <p id="dashPeriodLabel" className="text-[13px] text-slate-400"></p>
           </div>
         </div>
 
         {/* summary cards */}
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-          <div className="bg-surface rounded-2xl shadow-card border border-line p-4">
-            <p className="text-[12px] text-inksoft font-medium">Pemasukan</p>
-            <p id="sumIncome" className="font-mono font-bold text-lg text-teal-700 mt-1">Rp 0</p>
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+          <div className="bg-slate-900/80 backdrop-blur-md rounded-2xl border border-slate-800/90 p-4.5 shadow-lg hover:border-teal-500/40 transition space-y-1">
+            <p className="text-[12px] text-slate-400 font-medium">Total Pemasukan</p>
+            <p id="sumIncome" className="font-mono font-extrabold text-xl text-emerald-400">Rp 0</p>
           </div>
-          <div className="bg-surface rounded-2xl shadow-card border border-line p-4">
-            <p className="text-[12px] text-inksoft font-medium">Pengeluaran</p>
-            <p id="sumExpense" className="font-mono font-bold text-lg text-rust-600 mt-1">Rp 0</p>
+          <div className="bg-slate-900/80 backdrop-blur-md rounded-2xl border border-slate-800/90 p-4.5 shadow-lg hover:border-rose-500/40 transition space-y-1">
+            <p className="text-[12px] text-slate-400 font-medium">Total Pengeluaran</p>
+            <p id="sumExpense" className="font-mono font-extrabold text-xl text-rose-400">Rp 0</p>
           </div>
-          <div className="bg-surface rounded-2xl shadow-card border border-line p-4">
-            <p className="text-[12px] text-inksoft font-medium">Alokasi Dana</p>
-            <p id="sumAllocation" className="font-mono font-bold text-lg text-amber-600 mt-1">Rp 0</p>
+          <div className="bg-slate-900/80 backdrop-blur-md rounded-2xl border border-slate-800/90 p-4.5 shadow-lg hover:border-amber-500/40 transition space-y-1">
+            <p className="text-[12px] text-slate-400 font-medium">Dana Alokasi</p>
+            <p id="sumAllocation" className="font-mono font-extrabold text-xl text-amber-400">Rp 0</p>
           </div>
-          <div id="sumBalanceCard" className="rounded-2xl shadow-card border p-4 bg-teal-700 border-teal-700">
-            <p className="text-[12px] text-teal-100 font-medium flex items-center gap-1">Saldo Bersih <span id="balanceBadge" className="text-[10px] bg-white/20 rounded-full px-1.5 py-0.5">SURPLUS</span></p>
-            <p id="sumBalance" className="font-mono font-bold text-lg text-white mt-1">Rp 0</p>
+          <div id="sumBalanceCard" className="rounded-2xl shadow-xl border p-4.5 bg-gradient-to-br from-teal-950 via-slate-900 to-slate-900 border-teal-500/50">
+            <p className="text-[12px] text-teal-300 font-medium flex items-center gap-1.5">Saldo Bersih <span id="balanceBadge" className="text-[10px] font-bold bg-teal-500/20 text-teal-300 border border-teal-500/40 rounded-full px-2 py-0.5">SURPLUS</span></p>
+            <p id="sumBalance" className="font-mono font-extrabold text-2xl text-white mt-1">Rp 0</p>
           </div>
         </div>
 
         {/* cascade */}
-        <div className="bg-surface rounded-2xl shadow-card border border-line p-4 md:p-5">
-          <div className="flex items-center justify-between mb-3">
+        <div className="bg-slate-900/80 backdrop-blur-md rounded-2xl border border-slate-800/90 p-4 md:p-5 shadow-lg space-y-3">
+          <div className="flex items-center justify-between">
             <div>
-              <h2 className="font-display font-semibold text-[15px]">Alur Pengeluaran: Harian → Mingguan → Bulanan</h2>
-              <p className="text-[12px] text-inksoft">Total harian dijumlah tiap hari Minggu (mingguan), lalu tiap minggu terakhir bulan dijumlah jadi total bulanan.</p>
+              <h2 className="font-display font-bold text-base text-white">Alur Arus Kas: Harian → Mingguan → Bulanan</h2>
+              <p className="text-xs text-slate-400 mt-0.5">Ringkasan agregasi otomatis transaksi pengeluaran dan pemasukan Anda.</p>
             </div>
           </div>
           <div id="cascadeWrap" className="overflow-x-auto pb-1"></div>
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-          <div className="bg-surface rounded-2xl shadow-card border border-line p-4 lg:col-span-2">
-            <h2 className="font-display font-semibold text-[15px] mb-3">Tren Cashflow Mingguan</h2>
+          <div className="bg-slate-900/80 backdrop-blur-md rounded-2xl border border-slate-800/90 p-5 lg:col-span-2 shadow-lg">
+            <h2 className="font-display font-bold text-base text-white mb-4">Tren Arus Kas Mingguan</h2>
             <div className="h-64"><canvas id="chartTrend"></canvas></div>
           </div>
-          <div className="bg-surface rounded-2xl shadow-card border border-line p-4">
-            <h2 className="font-display font-semibold text-[15px] mb-3">Komposisi Pengeluaran</h2>
+          <div className="bg-slate-900/80 backdrop-blur-md rounded-2xl border border-slate-800/90 p-5 shadow-lg">
+            <h2 className="font-display font-bold text-base text-white mb-4">Komposisi Pengeluaran</h2>
             <div className="h-64"><canvas id="chartExpenseDonut"></canvas></div>
           </div>
         </div>
 
         {/* unpaid bills */}
-        <div className="bg-surface rounded-2xl shadow-card border border-line p-4">
-          <h2 className="font-display font-semibold text-[15px] mb-3 flex items-center gap-2">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#B87511" strokeWidth="2.3"><path d="M12 9v4M12 17h.01M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0Z"/></svg>
+        <div className="bg-slate-900/80 backdrop-blur-md rounded-2xl border border-slate-800/90 p-5 shadow-lg space-y-3">
+          <h2 className="font-display font-bold text-base text-white flex items-center gap-2">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#FBBF24" strokeWidth="2.3"><path d="M12 9v4M12 17h.01M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0Z"/></svg>
             Tagihan Belum Terbayar
           </h2>
           <div id="unpaidList" className="space-y-2"></div>
@@ -1898,23 +2337,39 @@ export default function Home({ initialView = 'dashboard' }) {
       <section id="view-expenses" className="view space-y-4">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
-            <h1 className="font-display text-xl font-bold text-ink">Pengeluaran</h1>
-            <p className="text-[13px] text-inksoft">Tetap, Berkala, dan Dinamis / Variabel</p>
+            <h1 className="font-display text-xl font-bold text-white">Kelola Pengeluaran</h1>
+            <p className="text-[13px] text-slate-400">Pengeluaran Tetap, Berkala, dan Dinamis / Variabel</p>
           </div>
-          <button data-add="expense" className="bg-teal-700 hover:bg-teal-800 text-white text-sm font-semibold rounded-xl px-4 h-10">+ Catat Pengeluaran</button>
+          <button data-add="expense" className="bg-gradient-to-r from-teal-500 to-emerald-500 hover:from-teal-400 hover:to-emerald-400 text-slate-950 text-sm font-bold rounded-xl px-4.5 h-10 shadow-lg shadow-teal-500/20">+ Catat Pengeluaran</button>
+        </div>
+
+        <div className="flex flex-col sm:flex-row items-center gap-3">
+          <div className="relative flex-1 w-full">
+            <svg className="absolute left-3.5 top-1/2 -translate-y-1/2" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#94A3B8" strokeWidth="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+            <input id="expenseSearch" type="text" placeholder="Cari pengeluaran atau catatan..." className="w-full pl-9 pr-4 h-10 border border-slate-800 rounded-xl text-xs bg-slate-950 text-white placeholder-slate-500 focus:outline-none focus:border-teal-500" />
+          </div>
+          <div className="flex items-center gap-2 shrink-0 w-full sm:w-auto justify-between sm:justify-end">
+            <span className="text-xs text-slate-400">Tampilkan:</span>
+            <select id="expensePerPage" defaultValue="20" className="h-10 px-3 border border-slate-800 rounded-xl text-xs bg-slate-950 text-slate-200 font-medium">
+              <option value="10">10 data</option>
+              <option value="20">20 data</option>
+              <option value="50">50 data</option>
+              <option value="all">Semua data</option>
+            </select>
+          </div>
         </div>
 
         <div className="flex flex-wrap gap-2" id="expenseCatTabs">
-          <button data-cat="all" className="tab-pill active px-3.5 h-9 rounded-full text-[13px] font-medium border border-line bg-white">Semua</button>
-          <button data-cat="tetap" className="tab-pill px-3.5 h-9 rounded-full text-[13px] font-medium border border-line bg-white">Tetap</button>
-          <button data-cat="berkala" className="tab-pill px-3.5 h-9 rounded-full text-[13px] font-medium border border-line bg-white">Berkala</button>
-          <button data-cat="dinamis" className="tab-pill px-3.5 h-9 rounded-full text-[13px] font-medium border border-line bg-white">Dinamis / Variabel</button>
+          <button data-cat="all" className="tab-pill active px-3.5 h-9 rounded-full text-[13px] font-medium border border-slate-700/80 bg-slate-900 text-slate-300">Semua</button>
+          <button data-cat="tetap" className="tab-pill px-3.5 h-9 rounded-full text-[13px] font-medium border border-slate-700/80 bg-slate-900 text-slate-300">Tetap</button>
+          <button data-cat="berkala" className="tab-pill px-3.5 h-9 rounded-full text-[13px] font-medium border border-slate-700/80 bg-slate-900 text-slate-300">Berkala</button>
+          <button data-cat="dinamis" className="tab-pill px-3.5 h-9 rounded-full text-[13px] font-medium border border-slate-700/80 bg-slate-900 text-slate-300">Dinamis / Variabel</button>
         </div>
 
         <div className="grid grid-cols-3 gap-3">
-          <div className="bg-surface rounded-xl border border-line p-3"><p className="text-[11px] text-inksoft">Tetap</p><p id="totTetap" className="font-mono font-bold text-teal-700">Rp 0</p></div>
-          <div className="bg-surface rounded-xl border border-line p-3"><p className="text-[11px] text-inksoft">Berkala</p><p id="totBerkala" className="font-mono font-bold text-amber-600">Rp 0</p></div>
-          <div className="bg-surface rounded-xl border border-line p-3"><p className="text-[11px] text-inksoft">Dinamis</p><p id="totDinamis" className="font-mono font-bold text-rust-600">Rp 0</p></div>
+          <div className="bg-slate-900/80 backdrop-blur-md rounded-xl border border-slate-800/90 p-3.5"><p className="text-[11px] text-slate-400">Tetap</p><p id="totTetap" className="font-mono font-bold text-teal-400 text-base mt-0.5">Rp 0</p></div>
+          <div className="bg-slate-900/80 backdrop-blur-md rounded-xl border border-slate-800/90 p-3.5"><p className="text-[11px] text-slate-400">Berkala</p><p id="totBerkala" className="font-mono font-bold text-amber-400 text-base mt-0.5">Rp 0</p></div>
+          <div className="bg-slate-900/80 backdrop-blur-md rounded-xl border border-slate-800/90 p-3.5"><p className="text-[11px] text-slate-400">Dinamis</p><p id="totDinamis" className="font-mono font-bold text-rose-400 text-base mt-0.5">Rp 0</p></div>
         </div>
 
         <div id="expenseList" className="space-y-2"></div>
@@ -1924,17 +2379,33 @@ export default function Home({ initialView = 'dashboard' }) {
       <section id="view-incomes" className="view space-y-4">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
-            <h1 className="font-display text-xl font-bold text-ink">Pemasukan</h1>
-            <p className="text-[13px] text-inksoft">Earned, Passive, dan Portfolio/Investment Income</p>
+            <h1 className="font-display text-xl font-bold text-white">Kelola Pemasukan</h1>
+            <p className="text-[13px] text-slate-400">Earned, Passive, dan Portfolio / Investment Income</p>
           </div>
-          <button data-add="income" className="bg-teal-700 hover:bg-teal-800 text-white text-sm font-semibold rounded-xl px-4 h-10">+ Catat Pemasukan</button>
+          <button data-add="income" className="bg-gradient-to-r from-teal-500 to-emerald-500 hover:from-teal-400 hover:to-emerald-400 text-slate-950 text-sm font-bold rounded-xl px-4.5 h-10 shadow-lg shadow-teal-500/20">+ Catat Pemasukan</button>
+        </div>
+
+        <div className="flex flex-col sm:flex-row items-center gap-3">
+          <div className="relative flex-1 w-full">
+            <svg className="absolute left-3.5 top-1/2 -translate-y-1/2" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#94A3B8" strokeWidth="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+            <input id="incomeSearch" type="text" placeholder="Cari pemasukan atau catatan..." className="w-full pl-9 pr-4 h-10 border border-slate-800 rounded-xl text-xs bg-slate-950 text-white placeholder-slate-500 focus:outline-none focus:border-teal-500" />
+          </div>
+          <div className="flex items-center gap-2 shrink-0 w-full sm:w-auto justify-between sm:justify-end">
+            <span className="text-xs text-slate-400">Tampilkan:</span>
+            <select id="incomePerPage" defaultValue="20" className="h-10 px-3 border border-slate-800 rounded-xl text-xs bg-slate-950 text-slate-200 font-medium">
+              <option value="10">10 data</option>
+              <option value="20">20 data</option>
+              <option value="50">50 data</option>
+              <option value="all">Semua data</option>
+            </select>
+          </div>
         </div>
 
         <div className="flex flex-wrap gap-2" id="incomeCatTabs">
-          <button data-cat="all" className="tab-pill active px-3.5 h-9 rounded-full text-[13px] font-medium border border-line bg-white">Semua</button>
-          <button data-cat="earned" className="tab-pill px-3.5 h-9 rounded-full text-[13px] font-medium border border-line bg-white">Earned / Active</button>
-          <button data-cat="passive" className="tab-pill px-3.5 h-9 rounded-full text-[13px] font-medium border border-line bg-white">Passive</button>
-          <button data-cat="portfolio" className="tab-pill px-3.5 h-9 rounded-full text-[13px] font-medium border border-line bg-white">Portfolio / Investment</button>
+          <button data-cat="all" className="tab-pill active px-3.5 h-9 rounded-full text-[13px] font-medium border border-slate-700/80 bg-slate-900 text-slate-300">Semua</button>
+          <button data-cat="earned" className="tab-pill px-3.5 h-9 rounded-full text-[13px] font-medium border border-slate-700/80 bg-slate-900 text-slate-300">Earned / Active</button>
+          <button data-cat="passive" className="tab-pill px-3.5 h-9 rounded-full text-[13px] font-medium border border-slate-700/80 bg-slate-900 text-slate-300">Passive</button>
+          <button data-cat="portfolio" className="tab-pill px-3.5 h-9 rounded-full text-[13px] font-medium border border-slate-700/80 bg-slate-900 text-slate-300">Portfolio / Investment</button>
         </div>
 
         <div id="incomeList" className="space-y-2"></div>
@@ -1944,10 +2415,26 @@ export default function Home({ initialView = 'dashboard' }) {
       <section id="view-allocations" className="view space-y-4">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
-            <h1 className="font-display text-xl font-bold text-ink">Dana Alokasi</h1>
-            <p className="text-[13px] text-inksoft">Darurat, Asuransi, Investasi, dan Cadangan/Likuiditas</p>
+            <h1 className="font-display text-xl font-bold text-white">Dana Alokasi & Target Saving</h1>
+            <p className="text-[13px] text-slate-400">Dana Darurat, Asuransi, Investasi, dan Cadangan Likuiditas</p>
           </div>
-          <button data-add="allocation" className="bg-teal-700 hover:bg-teal-800 text-white text-sm font-semibold rounded-xl px-4 h-10">+ Catat Alokasi</button>
+          <button data-add="allocation" className="bg-gradient-to-r from-teal-500 to-emerald-500 hover:from-teal-400 hover:to-emerald-400 text-slate-950 text-sm font-bold rounded-xl px-4.5 h-10 shadow-lg shadow-teal-500/20">+ Catat Alokasi</button>
+        </div>
+
+        <div className="flex flex-col sm:flex-row items-center gap-3">
+          <div className="relative flex-1 w-full">
+            <svg className="absolute left-3.5 top-1/2 -translate-y-1/2" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#94A3B8" strokeWidth="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+            <input id="allocationSearch" type="text" placeholder="Cari dana alokasi atau catatan..." className="w-full pl-9 pr-4 h-10 border border-slate-800 rounded-xl text-xs bg-slate-950 text-white placeholder-slate-500 focus:outline-none focus:border-teal-500" />
+          </div>
+          <div className="flex items-center gap-2 shrink-0 w-full sm:w-auto justify-between sm:justify-end">
+            <span className="text-xs text-slate-400">Tampilkan:</span>
+            <select id="allocationPerPage" defaultValue="20" className="h-10 px-3 border border-slate-800 rounded-xl text-xs bg-slate-950 text-slate-200 font-medium">
+              <option value="10">10 data</option>
+              <option value="20">20 data</option>
+              <option value="50">50 data</option>
+              <option value="all">Semua data</option>
+            </select>
+          </div>
         </div>
 
         <div id="allocationCards" className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3"></div>
@@ -1958,70 +2445,70 @@ export default function Home({ initialView = 'dashboard' }) {
       <section id="view-reports" className="view space-y-4">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
-            <h1 className="font-display text-xl font-bold text-ink">Laporan</h1>
-            <p className="text-[13px] text-inksoft">Ringkasan interaktif untuk periode yang dipilih — bisa diekspor ke PDF.</p>
+            <h1 className="font-display text-xl font-bold text-white">Laporan Keuangan Rinci</h1>
+            <p className="text-[13px] text-slate-400">Ringkasan interaktif untuk periode terpilih — dapat diekspor ke PDF.</p>
           </div>
-          <button id="exportPdfBtn" className="flex items-center gap-2 bg-rust-500 hover:bg-rust-600 text-white text-sm font-semibold rounded-xl px-4 h-10">
+          <button id="exportPdfBtn" className="flex items-center gap-2 bg-gradient-to-r from-rose-600 to-red-600 hover:from-rose-500 hover:to-red-500 text-white text-sm font-bold rounded-xl px-4.5 h-10 shadow-lg shadow-rose-600/30 transition">
             <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2.3"><path d="M12 3v12m0 0-4-4m4 4 4-4"/><path d="M4 17v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2"/></svg>
             Export PDF
           </button>
         </div>
 
-        <div id="reportContent" className="bg-surface rounded-2xl shadow-card border border-line p-5 md:p-7 space-y-6">
-          <div className="flex items-center justify-between border-b border-line pb-4">
+        <div id="reportContent" className="bg-slate-900/90 backdrop-blur-md rounded-2xl border border-slate-800 p-5 md:p-7 space-y-6 text-slate-100 shadow-2xl">
+          <div className="flex items-center justify-between border-b border-slate-800 pb-4">
             <div className="flex items-center gap-2.5">
-              <div className="w-9 h-9 rounded-xl bg-teal-700 flex items-center justify-center shrink-0">
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2.2" strokeLinecap="round"><path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
+              <div className="w-9.5 h-9.5 rounded-xl bg-gradient-to-tr from-teal-500 to-emerald-400 flex items-center justify-center shrink-0">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#0F172A" strokeWidth="2.4" strokeLinecap="round"><path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
               </div>
               <div>
-                <p className="font-display font-bold text-ink">CashMoneyManagement</p>
-                <p className="text-[12px] text-inksoft">Laporan Keuangan Pribadi</p>
+                <p className="font-display font-bold text-white text-base">CashMoneyManagement</p>
+                <p className="text-[12px] text-slate-400">Laporan Finansial Pribadi & Keluarga</p>
               </div>
             </div>
-            <p id="reportPeriod" className="font-mono text-[12.5px] text-inksoft text-right"></p>
+            <p id="reportPeriod" className="font-mono text-[12.5px] text-slate-400 text-right"></p>
           </div>
 
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-            <div className="rounded-xl border border-line p-3"><p className="text-[11px] text-inksoft">Total Pemasukan</p><p id="repIncome" className="font-mono font-bold text-teal-700">Rp 0</p></div>
-            <div className="rounded-xl border border-line p-3"><p className="text-[11px] text-inksoft">Total Pengeluaran</p><p id="repExpense" className="font-mono font-bold text-rust-600">Rp 0</p></div>
-            <div className="rounded-xl border border-line p-3"><p className="text-[11px] text-inksoft">Total Alokasi</p><p id="repAllocation" className="font-mono font-bold text-amber-600">Rp 0</p></div>
-            <div className="rounded-xl border border-line p-3 bg-teal-700"><p className="text-[11px] text-teal-100">Saldo Akhir</p><p id="repBalance" className="font-mono font-bold text-white">Rp 0</p></div>
+            <div className="rounded-xl border border-slate-800 bg-slate-950/60 p-3.5"><p className="text-[11px] text-slate-400">Total Pemasukan</p><p id="repIncome" className="font-mono font-bold text-emerald-400 text-lg mt-0.5">Rp 0</p></div>
+            <div className="rounded-xl border border-slate-800 bg-slate-950/60 p-3.5"><p className="text-[11px] text-slate-400">Total Pengeluaran</p><p id="repExpense" className="font-mono font-bold text-rose-400 text-lg mt-0.5">Rp 0</p></div>
+            <div className="rounded-xl border border-slate-800 bg-slate-950/60 p-3.5"><p className="text-[11px] text-slate-400">Total Alokasi</p><p id="repAllocation" className="font-mono font-bold text-amber-400 text-lg mt-0.5">Rp 0</p></div>
+            <div className="rounded-xl border border-teal-500/40 p-3.5 bg-gradient-to-r from-teal-900 to-slate-900"><p className="text-[11px] text-teal-300 font-medium">Saldo Akhir</p><p id="repBalance" className="font-mono font-bold text-white text-lg mt-0.5">Rp 0</p></div>
           </div>
 
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
-            <div>
-              <h3 className="font-display font-semibold text-[14px] mb-2">Pengeluaran per Kategori</h3>
+            <div className="bg-slate-950/40 p-4 rounded-xl border border-slate-800">
+              <h3 className="font-display font-bold text-[14px] text-white mb-3">Pengeluaran per Kategori</h3>
               <div className="h-56"><canvas id="chartRepExpense"></canvas></div>
             </div>
-            <div>
-              <h3 className="font-display font-semibold text-[14px] mb-2">Pemasukan per Kategori</h3>
+            <div className="bg-slate-950/40 p-4 rounded-xl border border-slate-800">
+              <h3 className="font-display font-bold text-[14px] text-white mb-3">Pemasukan per Kategori</h3>
               <div className="h-56"><canvas id="chartRepIncome"></canvas></div>
             </div>
           </div>
 
-          <div>
-            <h3 className="font-display font-semibold text-[14px] mb-2">Tren Bulanan (6 Bulan Terakhir)</h3>
+          <div className="bg-slate-950/40 p-4 rounded-xl border border-slate-800">
+            <h3 className="font-display font-bold text-[14px] text-white mb-3">Tren Bulanan (6 Bulan Terakhir)</h3>
             <div className="h-64"><canvas id="chartRepTrend"></canvas></div>
           </div>
 
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
             <div>
-              <h3 className="font-display font-semibold text-[14px] mb-2">Rincian Pengeluaran</h3>
+              <h3 className="font-display font-bold text-[14px] text-white mb-2">Rincian Pengeluaran</h3>
               <table className="w-full text-[12.5px]"><tbody id="repExpenseTable"></tbody></table>
             </div>
             <div>
-              <h3 className="font-display font-semibold text-[14px] mb-2">Rincian Pemasukan</h3>
+              <h3 className="font-display font-bold text-[14px] text-white mb-2">Rincian Pemasukan</h3>
               <table className="w-full text-[12.5px]"><tbody id="repIncomeTable"></tbody></table>
             </div>
             <div>
-              <h3 className="font-display font-semibold text-[14px] mb-2">Rincian Alokasi Dana</h3>
+              <h3 className="font-display font-bold text-[14px] text-white mb-2">Rincian Alokasi Dana</h3>
               <table className="w-full text-[12.5px]"><tbody id="repAllocationTable"></tbody></table>
             </div>
           </div>
 
-          <div className="rounded-xl bg-teal-50 border border-teal-100 p-4">
-            <h3 className="font-display font-semibold text-[14px] mb-2 text-teal-800">Ringkasan & Saran</h3>
-            <ul id="repSuggestions" className="space-y-1.5 text-[13px] text-teal-800 list-disc list-inside"></ul>
+          <div className="rounded-xl bg-teal-950/40 border border-teal-500/30 p-4.5 space-y-2">
+            <h3 className="font-display font-bold text-[14px] text-teal-300">Ringkasan & Saran Perencanaan Finansial</h3>
+            <ul id="repSuggestions" className="space-y-1.5 text-[13px] text-slate-300 list-disc list-inside"></ul>
           </div>
         </div>
       </section>
@@ -2030,24 +2517,24 @@ export default function Home({ initialView = 'dashboard' }) {
   </div>
 
   {/* ============ MOBILE BOTTOM NAV ============ */}
-  <nav className="md:hidden fixed bottom-0 inset-x-0 z-30 bg-white border-t border-line flex items-stretch h-16 px-1">
-    <a href="/dashboard" data-view="dashboard" className="nav-link-mobile active flex-1 flex flex-col items-center justify-center gap-0.5 text-inksoft">
+  <nav className="md:hidden fixed bottom-0 inset-x-0 z-30 bg-slate-900/95 backdrop-blur-xl border-t border-slate-800 flex items-stretch h-16 px-1">
+    <a href="/dashboard" data-view="dashboard" className="nav-link-mobile active flex-1 flex flex-col items-center justify-center gap-0.5 text-slate-400">
       <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="3" width="7" height="9" rx="1.5"/><rect x="14" y="3" width="7" height="5" rx="1.5"/><rect x="14" y="12" width="7" height="9" rx="1.5"/><rect x="3" y="16" width="7" height="5" rx="1.5"/></svg>
       <span className="text-[10px] font-medium">Dashboard</span>
     </a>
-    <a href="/expenses" data-view="expenses" className="nav-link-mobile flex-1 flex flex-col items-center justify-center gap-0.5 text-inksoft">
+    <a href="/expenses" data-view="expenses" className="nav-link-mobile flex-1 flex flex-col items-center justify-center gap-0.5 text-slate-400">
       <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M3 10h18M7 15h4"/><rect x="3" y="5" width="18" height="14" rx="2"/></svg>
       <span className="text-[10px] font-medium">Keluar</span>
     </a>
-    <a href="/incomes" data-view="incomes" className="nav-link-mobile flex-1 flex flex-col items-center justify-center gap-0.5 text-inksoft">
+    <a href="/incomes" data-view="incomes" className="nav-link-mobile flex-1 flex flex-col items-center justify-center gap-0.5 text-slate-400">
       <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M12 19V5M5 12l7-7 7 7"/></svg>
       <span className="text-[10px] font-medium">Masuk</span>
     </a>
-    <a href="/allocations" data-view="allocations" className="nav-link-mobile flex-1 flex flex-col items-center justify-center gap-0.5 text-inksoft">
+    <a href="/allocations" data-view="allocations" className="nav-link-mobile flex-1 flex flex-col items-center justify-center gap-0.5 text-slate-400">
       <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M12 2a10 10 0 1 0 10 10"/><path d="M12 2v10l7 7"/></svg>
       <span className="text-[10px] font-medium">Alokasi</span>
     </a>
-    <a href="/reports" data-view="reports" className="nav-link-mobile flex-1 flex flex-col items-center justify-center gap-0.5 text-inksoft">
+    <a href="/reports" data-view="reports" className="nav-link-mobile flex-1 flex flex-col items-center justify-center gap-0.5 text-slate-400">
       <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M8 17V9M13 17V5M18 17v-5"/><rect x="3" y="3" width="18" height="18" rx="2"/></svg>
       <span className="text-[10px] font-medium">Laporan</span>
     </a>
@@ -2055,95 +2542,179 @@ export default function Home({ initialView = 'dashboard' }) {
 </div>
 
 {/* ============ QUICK ADD CHOOSER ============ */}
-<div id="quickAddModal" className="modal-backdrop fixed inset-0 bg-ink/40 z-40 items-end md:items-center justify-center">
-  <div className="bg-white rounded-t-2xl md:rounded-2xl w-full md:w-80 p-4 space-y-2">
-    <p className="font-display font-semibold text-sm px-1 pb-1">Mau catat apa?</p>
-    <button data-add="expense" className="w-full flex items-center gap-3 p-3 rounded-xl hover:bg-rust-50 text-left">
-      <span className="w-9 h-9 rounded-lg bg-rust-50 flex items-center justify-center"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#B8471F" strokeWidth="2.3"><path d="M5 12h14"/></svg></span>
-      <span><span className="block text-sm font-semibold">Pengeluaran</span><span className="block text-[12px] text-inksoft">Tetap, berkala, atau dinamis</span></span>
+<div id="quickAddModal" className="modal-backdrop fixed inset-0 bg-slate-950/80 backdrop-blur-md z-40 items-end md:items-center justify-center">
+  <div className="bg-slate-900 border border-slate-700/80 text-slate-100 rounded-t-2xl md:rounded-2xl w-full md:w-84 p-5 space-y-3 shadow-2xl">
+    <p className="font-display font-bold text-base px-1">Mau catat transaksi apa?</p>
+    <button data-add="expense" className="w-full flex items-center gap-3 p-3.5 rounded-xl bg-slate-800/60 hover:bg-slate-800 border border-slate-700/60 text-left transition">
+      <span className="w-10 h-10 rounded-xl bg-rose-500/20 border border-rose-500/30 flex items-center justify-center shrink-0"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#FB7185" strokeWidth="2.5"><path d="M5 12h14"/></svg></span>
+      <span><span className="block text-sm font-bold text-white">Catat Pengeluaran</span><span className="block text-[12px] text-slate-400">Tetap, berkala, atau dinamis</span></span>
     </button>
-    <button data-add="income" className="w-full flex items-center gap-3 p-3 rounded-xl hover:bg-teal-50 text-left">
-      <span className="w-9 h-9 rounded-lg bg-teal-50 flex items-center justify-center"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#1F6F5C" strokeWidth="2.3"><path d="M12 19V5M5 12l7-7 7 7"/></svg></span>
-      <span><span className="block text-sm font-semibold">Pemasukan</span><span className="block text-[12px] text-inksoft">Earned, passive, atau investment</span></span>
+    <button data-add="income" className="w-full flex items-center gap-3 p-3.5 rounded-xl bg-slate-800/60 hover:bg-slate-800 border border-slate-700/60 text-left transition">
+      <span className="w-10 h-10 rounded-xl bg-emerald-500/20 border border-emerald-500/30 flex items-center justify-center shrink-0"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#34D399" strokeWidth="2.5"><path d="M12 19V5M5 12l7-7 7 7"/></svg></span>
+      <span><span className="block text-sm font-bold text-white">Catat Pemasukan</span><span className="block text-[12px] text-slate-400">Earned, passive, atau investment</span></span>
     </button>
-    <button data-add="allocation" className="w-full flex items-center gap-3 p-3 rounded-xl hover:bg-amber-50 text-left">
-      <span className="w-9 h-9 rounded-lg bg-amber-50 flex items-center justify-center"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#B87511" strokeWidth="2.3"><path d="M12 2v20"/></svg></span>
-      <span><span className="block text-sm font-semibold">Dana Alokasi</span><span className="block text-[12px] text-inksoft">Darurat, asuransi, investasi, cadangan</span></span>
+    <button data-add="allocation" className="w-full flex items-center gap-3 p-3.5 rounded-xl bg-slate-800/60 hover:bg-slate-800 border border-slate-700/60 text-left transition">
+      <span className="w-10 h-10 rounded-xl bg-amber-500/20 border border-amber-500/30 flex items-center justify-center shrink-0"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#FBBF24" strokeWidth="2.5"><path d="M12 2v20"/></svg></span>
+      <span><span className="block text-sm font-bold text-white">Dana Alokasi & Target</span><span className="block text-[12px] text-slate-400">Darurat, asuransi, investasi, cadangan</span></span>
     </button>
-    <button id="quickAddCancel" className="w-full text-center py-2.5 text-sm font-medium text-inksoft">Batal</button>
+    <button id="quickAddCancel" className="w-full text-center py-2.5 text-sm font-semibold text-slate-400 hover:text-white">Batal</button>
   </div>
 </div>
 
 {/* ============ LOGIN MODAL ============ */}
-<div id="loginModal" className="modal-backdrop fixed inset-0 bg-ink/40 z-50 items-end md:items-center justify-center">
-  <form id="loginForm" className="bg-white rounded-t-2xl md:rounded-2xl w-full md:w-80 p-5 space-y-3.5">
+<div id="loginModal" className="modal-backdrop fixed inset-0 bg-slate-950/80 backdrop-blur-md z-50 items-end md:items-center justify-center">
+  <form id="loginForm" className="bg-slate-900 border border-slate-700/80 text-slate-100 rounded-t-2xl md:rounded-2xl w-full md:w-96 p-6 space-y-4 shadow-2xl">
     <div className="flex items-center justify-between">
-      <h3 className="font-display font-bold text-[15px]">Masuk ke CashMoney</h3>
-      <button type="button" id="loginClose" className="modal-close text-inksoft text-xl leading-none">×</button>
+      <div>
+        <h3 className="font-display font-extrabold text-lg text-white">Masuk ke CashMoney</h3>
+        <p className="text-xs text-slate-400">Kelola keuangan Anda dengan terstruktur</p>
+      </div>
+      <button type="button" id="loginClose" className="modal-close text-slate-400 hover:text-white text-2xl leading-none">×</button>
     </div>
     <div>
-      <label className="text-[12.5px] font-medium text-inksoft">Email</label>
-      <input id="login_email" type="email" required className="w-full mt-1 border border-line rounded-xl h-11 px-3 text-sm" />
+      <label className="text-[12.5px] font-medium text-slate-300">Email</label>
+      <input id="login_email" type="email" required className="w-full mt-1.5 border border-slate-800 rounded-xl h-11 px-3.5 text-sm bg-slate-950 text-white focus:border-teal-500 focus:outline-none" placeholder="nama@email.com" />
     </div>
     <div>
-      <label className="text-[12.5px] font-medium text-inksoft">Password</label>
-      <input id="login_password" type="password" required className="w-full mt-1 border border-line rounded-xl h-11 px-3 text-sm" />
+      <label className="text-[12.5px] font-medium text-slate-300">Password</label>
+      <input id="login_password" type="password" required className="w-full mt-1.5 border border-slate-800 rounded-xl h-11 px-3.5 text-sm bg-slate-950 text-white focus:border-teal-500 focus:outline-none" placeholder="••••••••" />
     </div>
-    <div className="text-sm text-inksoft">
-      <button type="button" id="registerLink" className="font-medium text-teal-700 hover:underline">Belum punya akun? Daftar</button>
+    <div className="text-xs text-slate-400">
+      <button type="button" id="registerLink" className="font-semibold text-teal-400 hover:underline">Belum punya akun? Daftar sekarang</button>
     </div>
-    <div className="flex gap-2 pt-1">
-      <button type="button" id="loginCancel" className="text-inksoft text-sm font-medium px-4 h-11 rounded-xl border border-line">Batal</button>
-      <button type="submit" className="flex-1 bg-teal-700 hover:bg-teal-800 text-white text-sm font-semibold rounded-xl h-11">Masuk</button>
+    <div className="flex gap-3 pt-2">
+      <button type="button" id="loginCancel" className="text-slate-300 text-sm font-medium px-4 h-11 rounded-xl border border-slate-700 bg-slate-800/80 hover:bg-slate-800">Batal</button>
+      <button type="submit" className="flex-1 bg-gradient-to-r from-teal-500 to-emerald-500 hover:from-teal-400 hover:to-emerald-400 text-slate-950 text-sm font-bold rounded-xl h-11 shadow-lg shadow-teal-500/25 transition">Masuk</button>
     </div>
   </form>
 </div>
 
-<div id="registerModal" className="modal-backdrop fixed inset-0 bg-ink/40 z-50 items-center justify-center overflow-y-auto py-6">
-  <form id="registerForm" className="bg-white rounded-none md:rounded-2xl w-full max-w-3xl h-full max-h-[calc(100vh-2rem)] p-6 space-y-4 overflow-y-auto shadow-2xl">
+{/* ============ REGISTER MODAL ============ */}
+<div id="registerModal" className="modal-backdrop fixed inset-0 bg-slate-950/80 backdrop-blur-md z-50 items-center justify-center overflow-y-auto py-6">
+  <form id="registerForm" className="bg-slate-900 border border-slate-700/80 text-slate-100 rounded-2xl w-full max-w-md p-6 space-y-4 shadow-2xl max-h-[92vh] overflow-y-auto">
     <div className="flex items-center justify-between">
-      <h3 className="font-display font-bold text-lg">Daftar Akun Baru</h3>
-      <button type="button" id="registerClose" className="modal-close text-inksoft text-2xl leading-none">×</button>
+      <div>
+        <h3 className="font-display font-extrabold text-xl text-white">Daftar Akun Baru</h3>
+        <p className="text-xs text-slate-400">Bergabung untuk kebebasan finansial Anda</p>
+      </div>
+      <button type="button" id="registerClose" className="modal-close text-slate-400 hover:text-white text-2xl leading-none">×</button>
     </div>
-    <div className="grid gap-4">
+    <div className="space-y-3">
       <div>
-        <label className="text-sm font-medium text-inksoft">Nama</label>
-        <input id="register_name" type="text" required className="w-full mt-2 border border-line rounded-2xl h-12 px-4 text-sm" />
+        <label className="text-xs font-medium text-slate-300">Nama Lengkap</label>
+        <input id="register_name" type="text" required className="w-full mt-1 border border-slate-800 rounded-xl h-11 px-3.5 text-sm bg-slate-950 text-white focus:border-teal-500 focus:outline-none" placeholder="Nama Anda" />
       </div>
       <div>
-        <label className="text-sm font-medium text-inksoft">Email</label>
-        <input id="register_email" type="email" required className="w-full mt-2 border border-line rounded-2xl h-12 px-4 text-sm" />
+        <label className="text-xs font-medium text-slate-300">Email</label>
+        <input id="register_email" type="email" required className="w-full mt-1 border border-slate-800 rounded-xl h-11 px-3.5 text-sm bg-slate-950 text-white focus:border-teal-500 focus:outline-none" placeholder="nama@email.com" />
       </div>
       <div>
-        <label className="text-sm font-medium text-inksoft">Password</label>
-        <input id="register_password" type="password" required className="w-full mt-2 border border-line rounded-2xl h-12 px-4 text-sm" />
+        <label className="text-xs font-medium text-slate-300">Password</label>
+        <input id="register_password" type="password" required className="w-full mt-1 border border-slate-800 rounded-xl h-11 px-3.5 text-sm bg-slate-950 text-white focus:border-teal-500 focus:outline-none" placeholder="••••••••" />
       </div>
       <div>
-        <label className="text-sm font-medium text-inksoft">Konfirmasi Password</label>
-        <input id="register_password_confirmation" type="password" required className="w-full mt-2 border border-line rounded-2xl h-12 px-4 text-sm" />
+        <label className="text-xs font-medium text-slate-300">Konfirmasi Password</label>
+        <input id="register_password_confirmation" type="password" required className="w-full mt-1 border border-slate-800 rounded-xl h-11 px-3.5 text-sm bg-slate-950 text-white focus:border-teal-500 focus:outline-none" placeholder="••••••••" />
       </div>
     </div>
-    <div className="text-sm text-inksoft">
-      <button type="button" id="registerSwitchLogin" className="font-medium text-teal-700 hover:underline">Sudah punya akun? Masuk</button>
+    <div className="text-xs text-slate-400">
+      <button type="button" id="registerSwitchLogin" className="font-semibold text-teal-400 hover:underline">Sudah punya akun? Masuk</button>
     </div>
-    <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between pt-2">
-      <button type="button" id="registerCancel" className="text-inksoft text-sm font-medium px-5 h-12 rounded-2xl border border-line">Batal</button>
-      <button type="submit" className="w-full sm:w-auto bg-teal-700 hover:bg-teal-800 text-white text-sm font-semibold rounded-2xl h-12 px-6">Daftar</button>
+    <div className="flex gap-3 pt-2">
+      <button type="button" id="registerCancel" className="text-slate-300 text-sm font-medium px-4 h-11 rounded-xl border border-slate-700 bg-slate-800/80 hover:bg-slate-800">Batal</button>
+      <button type="submit" className="flex-1 bg-gradient-to-r from-teal-500 to-emerald-500 hover:from-teal-400 hover:to-emerald-400 text-slate-950 text-sm font-bold rounded-xl h-11 shadow-lg shadow-teal-500/25 transition">Daftar Akun</button>
+    </div>
+  </form>
+</div>
+
+{/* ============ PROFILE MODAL ============ */}
+<div id="profileModal" className="modal-backdrop fixed inset-0 bg-slate-950/80 backdrop-blur-md z-[55] items-center justify-center overflow-y-auto py-6">
+  <form id="profileForm" className="bg-slate-900 border border-slate-700/80 text-slate-100 rounded-2xl w-full max-w-lg p-6 space-y-4 shadow-2xl max-h-[92vh] overflow-y-auto">
+    <div className="flex items-center justify-between">
+      <div className="flex items-center gap-3">
+        <div className="w-10 h-10 rounded-xl bg-teal-500/20 border border-teal-500/30 flex items-center justify-center text-teal-300">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+        </div>
+        <div>
+          <h3 className="font-display font-bold text-lg text-white">Profil Pengguna</h3>
+          <p className="text-xs text-slate-400">Kelola identitas dan preferensi akun Anda</p>
+        </div>
+      </div>
+      <button type="button" id="profClose" className="modal-close text-slate-400 hover:text-white text-2xl leading-none">×</button>
+    </div>
+
+    <div id="profWarningBanner" className="hidden p-3.5 rounded-xl bg-amber-500/10 border border-amber-500/30 text-xs text-amber-300 space-y-1">
+      <p className="font-bold flex items-center gap-1.5 text-amber-200">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4"><path d="M12 9v4M12 17h.01M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0Z"/></svg>
+        Profil Belum Lengkap!
+      </p>
+      <p>Lengkapi nomor telepon dan status pekerjaan terlebih dahulu untuk membuka akses penuh ke semua menu aplikasi.</p>
+    </div>
+
+    <div className="space-y-3">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+        <div>
+          <label className="text-[12.5px] font-medium text-slate-300">Nama Lengkap</label>
+          <input id="prof_name" type="text" required className="w-full mt-1 border border-slate-800 rounded-xl h-11 px-3.5 text-sm bg-slate-950 text-white focus:border-teal-500" placeholder="Nama lengkap" />
+        </div>
+        <div>
+          <label className="text-[12.5px] font-medium text-slate-300">Email Akun</label>
+          <input id="prof_email" type="email" disabled className="w-full mt-1 border border-slate-800 rounded-xl h-11 px-3.5 text-sm bg-slate-950/60 text-slate-400" />
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+        <div>
+          <label className="text-[12.5px] font-medium text-slate-300">Nomor Telepon / WA <span className="text-rose-400">*</span></label>
+          <input id="prof_phone" type="tel" required className="w-full mt-1 border border-slate-800 rounded-xl h-11 px-3.5 text-sm bg-slate-950 text-white focus:border-teal-500" placeholder="081234567890" />
+        </div>
+        <div>
+          <label className="text-[12.5px] font-medium text-slate-300">Status Pekerjaan <span className="text-rose-400">*</span></label>
+          <select id="prof_employment" className="w-full mt-1 border border-slate-800 rounded-xl h-11 px-3.5 text-sm bg-slate-950 text-white focus:border-teal-500">
+            <option value="karyawan">Karyawan</option>
+            <option value="wirausaha">Wirausaha / Business Owner</option>
+            <option value="freelance">Freelancer / Professional</option>
+            <option value="pelajar">Pelajar / Mahasiswa</option>
+            <option value="lainnya">Lainnya</option>
+          </select>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+        <div>
+          <label className="text-[12.5px] font-medium text-slate-300">Jabatan / Profesi</label>
+          <input id="prof_job" type="text" className="w-full mt-1 border border-slate-800 rounded-xl h-11 px-3.5 text-sm bg-slate-950 text-white focus:border-teal-500" placeholder="mis. Software Engineer" />
+        </div>
+        <div>
+          <label className="text-[12.5px] font-medium text-slate-300">Nama Perusahaan / Usaha</label>
+          <input id="prof_company" type="text" className="w-full mt-1 border border-slate-800 rounded-xl h-11 px-3.5 text-sm bg-slate-950 text-white focus:border-teal-500" placeholder="mis. PT Maju Bersama" />
+        </div>
+      </div>
+
+      <div>
+        <label className="text-[12.5px] font-medium text-slate-300">Perkiraan Penghasilan Bulanan (Rp)</label>
+        <input id="prof_income" type="number" min="0" step="100000" className="w-full mt-1 border border-slate-800 rounded-xl h-11 px-3.5 text-sm bg-slate-950 text-white font-mono focus:border-teal-500" placeholder="0" />
+      </div>
+    </div>
+
+    <div className="flex gap-3 pt-2">
+      <button type="button" id="profCancel" className="px-5 h-11 rounded-xl border border-slate-700 bg-slate-800/80 text-sm font-medium text-slate-300 hover:text-white transition">Batal</button>
+      <button type="submit" className="flex-1 bg-gradient-to-r from-teal-500 to-emerald-500 hover:from-teal-400 hover:to-emerald-400 text-slate-950 font-bold text-sm rounded-xl h-11 transition shadow-lg shadow-teal-500/25">Simpan Profil</button>
     </div>
   </form>
 </div>
 
 {/* ============ EXPENSE FORM MODAL ============ */}
-<div id="expenseModal" className="modal-backdrop fixed inset-0 bg-ink/40 z-40 items-end md:items-center justify-center overflow-y-auto py-6">
-  <form id="expenseForm" className="bg-white rounded-t-2xl md:rounded-2xl w-full md:w-[440px] p-5 space-y-3.5 max-h-[92vh] overflow-y-auto">
+<div id="expenseModal" className="modal-backdrop fixed inset-0 bg-slate-950/80 backdrop-blur-md z-40 items-end md:items-center justify-center overflow-y-auto py-6">
+  <form id="expenseForm" className="bg-slate-900 border border-slate-700/80 text-slate-100 rounded-t-2xl md:rounded-2xl w-full md:w-[440px] p-5 space-y-3.5 max-h-[92vh] overflow-y-auto shadow-2xl">
     <div className="flex items-center justify-between">
-      <h3 className="font-display font-bold text-[15px]">Catat Pengeluaran</h3>
-      <button type="button" className="modal-close text-inksoft text-xl leading-none">×</button>
+      <h3 className="font-display font-bold text-base text-white">Catat Pengeluaran</h3>
+      <button type="button" className="modal-close text-slate-400 hover:text-white text-xl leading-none">×</button>
     </div>
     <input type="hidden" id="exp_id" />
     <div>
-      <label className="text-[12.5px] font-medium text-inksoft">Jenis Pengeluaran</label>
-      <select id="exp_category" className="w-full mt-1 border border-line rounded-xl h-11 px-3 text-sm bg-white">
+      <label className="text-[12.5px] font-medium text-slate-300">Jenis Pengeluaran</label>
+      <select id="exp_category" className="w-full mt-1 border border-slate-800 rounded-xl h-11 px-3 text-sm bg-slate-950 text-white focus:border-teal-500">
         <option value="tetap">Tetap (rutin, jumlah konstan)</option>
         <option value="berkala">Berkala (di luar siklus bulanan)</option>
         <option value="dinamis">Dinamis / Variabel</option>
@@ -2151,117 +2722,127 @@ export default function Home({ initialView = 'dashboard' }) {
     </div>
     <div className="grid grid-cols-2 gap-3">
       <div>
-        <label className="text-[12.5px] font-medium text-inksoft">Kategori</label>
-        <input id="exp_sub" list="exp_sub_list" className="w-full mt-1 border border-line rounded-xl h-11 px-3 text-sm" placeholder="Pilih / ketik" />
+        <label className="text-[12.5px] font-medium text-slate-300">Kategori</label>
+        <input id="exp_sub" list="exp_sub_list" className="w-full mt-1 border border-slate-800 rounded-xl h-11 px-3 text-sm bg-slate-950 text-white focus:border-teal-500" placeholder="Pilih / ketik" />
         <datalist id="exp_sub_list"></datalist>
       </div>
       <div>
-        <label className="text-[12.5px] font-medium text-inksoft">Frekuensi</label>
-        <select id="exp_freq" className="w-full mt-1 border border-line rounded-xl h-11 px-3 text-sm bg-white"></select>
+        <label className="text-[12.5px] font-medium text-slate-300">Frekuensi</label>
+        <select id="exp_freq" className="w-full mt-1 border border-slate-800 rounded-xl h-11 px-3 text-sm bg-slate-950 text-white focus:border-teal-500"></select>
       </div>
     </div>
     <div className="grid grid-cols-2 gap-3">
       <div>
-        <label className="text-[12.5px] font-medium text-inksoft">Jumlah (Rp)</label>
-        <input id="exp_amount" type="number" min="0" step="1" required className="w-full mt-1 border border-line rounded-xl h-11 px-3 text-sm font-mono" placeholder="0" />
+        <label className="text-[12.5px] font-medium text-slate-300">Jumlah (Rp)</label>
+        <input id="exp_amount" type="number" min="0" step="1" required className="w-full mt-1 border border-slate-800 rounded-xl h-11 px-3 text-sm font-mono bg-slate-950 text-white focus:border-teal-500" placeholder="0" />
       </div>
       <div>
-        <label className="text-[12.5px] font-medium text-inksoft">Tanggal</label>
-        <input id="exp_date" type="date" required className="w-full mt-1 border border-line rounded-xl h-11 px-3 text-sm" />
+        <label className="text-[12.5px] font-medium text-slate-300">Tanggal</label>
+        <input id="exp_date" type="date" required className="w-full mt-1 border border-slate-800 rounded-xl h-11 px-3 text-sm bg-slate-950 text-white focus:border-teal-500" />
       </div>
     </div>
     <div id="exp_status_wrap" className="grid grid-cols-2 gap-3">
       <div>
-        <label className="text-[12.5px] font-medium text-inksoft">Status Bayar</label>
-        <select id="exp_status" className="w-full mt-1 border border-line rounded-xl h-11 px-3 text-sm bg-white">
+        <label className="text-[12.5px] font-medium text-slate-300">Status Bayar</label>
+        <select id="exp_status" className="w-full mt-1 border border-slate-800 rounded-xl h-11 px-3 text-sm bg-slate-950 text-white focus:border-teal-500">
           <option value="unpaid">Belum Dibayar</option>
           <option value="paid">Sudah Dibayar</option>
         </select>
       </div>
       <div className="flex items-end pb-2.5">
-        <label className="flex items-center gap-2 text-[12.5px] text-inksoft">
-          <input id="exp_estimate" type="checkbox" className="w-4 h-4 rounded border-line accent-teal-700" />
-          Ini estimasi (belum aktual)
+        <label className="flex items-center gap-2 text-[12.5px] text-slate-300 cursor-pointer">
+          <input id="exp_estimate" type="checkbox" className="w-4 h-4 rounded border-slate-800 accent-teal-500 bg-slate-950" />
+          Estimasi (belum aktual)
         </label>
       </div>
     </div>
     <div>
-      <label className="text-[12.5px] font-medium text-inksoft">Catatan (opsional)</label>
-      <input id="exp_note" className="w-full mt-1 border border-line rounded-xl h-11 px-3 text-sm" placeholder="mis. bayar via transfer BCA" />
+      <label className="text-[12.5px] font-medium text-slate-300">Catatan (opsional)</label>
+      <input id="exp_note" className="w-full mt-1 border border-slate-800 rounded-xl h-11 px-3 text-sm bg-slate-950 text-white focus:border-teal-500" placeholder="mis. bayar via transfer BCA" />
     </div>
     <div>
-      <label className="text-[12.5px] font-medium text-inksoft">Lampiran bukti (opsional)</label>
-      <input id="exp_attachment" type="file" accept="image/*,application/pdf" className="w-full mt-1" />
-      <div id="exp_attachment_preview" className="mt-2 text-sm"></div>
+      <label className="text-[12.5px] font-medium text-slate-300">Lampiran bukti (opsional)</label>
+      <label className="mt-1 flex flex-col items-center gap-1.5 w-full cursor-pointer border-2 border-dashed border-slate-800 rounded-xl py-3 px-4 hover:border-teal-500/50 hover:bg-slate-950/60 transition">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#2DD4BF" strokeWidth="2" strokeLinecap="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+        <span className="text-[12px] text-slate-300">Pilih gambar atau PDF <span className="text-teal-400 font-semibold">Browse</span></span>
+        <span className="text-[10.5px] text-slate-500">Maks 10 MB · JPG, PNG, WebP, PDF</span>
+        <input id="exp_attachment" type="file" accept="image/*,application/pdf" className="sr-only" />
+      </label>
+      <div id="expAttachPreview" className="mt-2 hidden"></div>
     </div>
     <div className="flex gap-2 pt-1">
-      <button type="button" id="exp_delete" className="hidden items-center gap-1.5 text-rust-600 text-sm font-semibold px-4 h-11 rounded-xl border border-rust-200 hover:bg-rust-50 transition">
+      <button type="button" id="exp_delete" className="hidden items-center gap-1.5 text-rose-400 text-sm font-semibold px-4 h-11 rounded-xl border border-rose-500/30 bg-rose-500/10 hover:bg-rose-500/20 transition">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.3" strokeLinecap="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4h6v2"/></svg>
         Hapus
       </button>
-      <button type="submit" className="flex-1 bg-teal-700 hover:bg-teal-800 text-white text-sm font-semibold rounded-xl h-11 transition">Simpan</button>
+      <button type="submit" className="flex-1 bg-gradient-to-r from-teal-500 to-emerald-500 text-slate-950 text-sm font-bold rounded-xl h-11 shadow-lg shadow-teal-500/25 transition">Simpan</button>
     </div>
   </form>
 </div>
 
 {/* ============ INCOME FORM MODAL ============ */}
-<div id="incomeModal" className="modal-backdrop fixed inset-0 bg-ink/40 z-40 items-end md:items-center justify-center overflow-y-auto py-6">
-  <form id="incomeForm" className="bg-white rounded-t-2xl md:rounded-2xl w-full md:w-[440px] p-5 space-y-3.5 max-h-[92vh] overflow-y-auto">
+<div id="incomeModal" className="modal-backdrop fixed inset-0 bg-slate-950/80 backdrop-blur-md z-40 items-end md:items-center justify-center overflow-y-auto py-6">
+  <form id="incomeForm" className="bg-slate-900 border border-slate-700/80 text-slate-100 rounded-t-2xl md:rounded-2xl w-full md:w-[440px] p-5 space-y-3.5 max-h-[92vh] overflow-y-auto shadow-2xl">
     <div className="flex items-center justify-between">
-      <h3 className="font-display font-bold text-[15px]">Catat Pemasukan</h3>
-      <button type="button" className="modal-close text-inksoft text-xl leading-none">×</button>
+      <h3 className="font-display font-bold text-base text-white">Catat Pemasukan</h3>
+      <button type="button" className="modal-close text-slate-400 hover:text-white text-xl leading-none">×</button>
     </div>
     <input type="hidden" id="inc_id" />
     <div>
-      <label className="text-[12.5px] font-medium text-inksoft">Jenis Pemasukan</label>
-      <select id="inc_category" className="w-full mt-1 border border-line rounded-xl h-11 px-3 text-sm bg-white">
+      <label className="text-[12.5px] font-medium text-slate-300">Jenis Pemasukan</label>
+      <select id="inc_category" className="w-full mt-1 border border-slate-800 rounded-xl h-11 px-3 text-sm bg-slate-950 text-white focus:border-teal-500">
         <option value="earned">Earned / Active Income</option>
         <option value="passive">Passive Income</option>
         <option value="portfolio">Portfolio / Investment Income</option>
       </select>
     </div>
     <div>
-      <label className="text-[12.5px] font-medium text-inksoft">Kategori</label>
-      <input id="inc_sub" list="inc_sub_list" className="w-full mt-1 border border-line rounded-xl h-11 px-3 text-sm" placeholder="Pilih / ketik" />
+      <label className="text-[12.5px] font-medium text-slate-300">Kategori</label>
+      <input id="inc_sub" list="inc_sub_list" className="w-full mt-1 border border-slate-800 rounded-xl h-11 px-3 text-sm bg-slate-950 text-white focus:border-teal-500" placeholder="Pilih / ketik" />
       <datalist id="inc_sub_list"></datalist>
     </div>
     <div className="grid grid-cols-2 gap-3">
       <div>
-        <label className="text-[12.5px] font-medium text-inksoft">Jumlah (Rp)</label>
-        <input id="inc_amount" type="number" min="0" step="1" required className="w-full mt-1 border border-line rounded-xl h-11 px-3 text-sm font-mono" placeholder="0" />
+        <label className="text-[12.5px] font-medium text-slate-300">Jumlah (Rp)</label>
+        <input id="inc_amount" type="number" min="0" step="1" required className="w-full mt-1 border border-slate-800 rounded-xl h-11 px-3 text-sm font-mono bg-slate-950 text-white focus:border-teal-500" placeholder="0" />
       </div>
       <div>
-        <label className="text-[12.5px] font-medium text-inksoft">Tanggal</label>
-        <input id="inc_date" type="date" required className="w-full mt-1 border border-line rounded-xl h-11 px-3 text-sm" />
+        <label className="text-[12.5px] font-medium text-slate-300">Tanggal</label>
+        <input id="inc_date" type="date" required className="w-full mt-1 border border-slate-800 rounded-xl h-11 px-3 text-sm bg-slate-950 text-white focus:border-teal-500" />
       </div>
     </div>
     <div>
-      <label className="text-[12.5px] font-medium text-inksoft">Catatan (opsional)</label>
-      <input id="inc_note" className="w-full mt-1 border border-line rounded-xl h-11 px-3 text-sm" />
+      <label className="text-[12.5px] font-medium text-slate-300">Catatan (opsional)</label>
+      <input id="inc_note" className="w-full mt-1 border border-slate-800 rounded-xl h-11 px-3 text-sm bg-slate-950 text-white focus:border-teal-500" />
     </div>
     <div>
-      <label className="text-[12.5px] font-medium text-inksoft">Lampiran bukti (opsional)</label>
-      <input id="inc_attachment" type="file" accept="image/*,application/pdf" className="w-full mt-1" />
-      <div id="inc_attachment_preview" className="mt-2 text-sm"></div>
+      <label className="text-[12.5px] font-medium text-slate-300">Lampiran bukti (opsional)</label>
+      <label className="mt-1 flex flex-col items-center gap-1.5 w-full cursor-pointer border-2 border-dashed border-slate-800 rounded-xl py-3 px-4 hover:border-teal-500/50 hover:bg-slate-950/60 transition">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#2DD4BF" strokeWidth="2" strokeLinecap="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+        <span className="text-[12px] text-slate-300">Pilih gambar atau PDF <span className="text-teal-400 font-semibold">Browse</span></span>
+        <span className="text-[10.5px] text-slate-500">Maks 10 MB · JPG, PNG, WebP, PDF</span>
+        <input id="inc_attachment" type="file" accept="image/*,application/pdf" className="sr-only" />
+      </label>
+      <div id="incAttachPreview" className="mt-2 hidden"></div>
     </div>
     <div className="flex gap-2 pt-1">
-      <button type="button" id="inc_delete" className="hidden text-rust-600 text-sm font-semibold px-4 h-11 rounded-xl border border-rust-200">Hapus</button>
-      <button type="submit" className="flex-1 bg-teal-700 hover:bg-teal-800 text-white text-sm font-semibold rounded-xl h-11">Simpan</button>
+      <button type="button" id="inc_delete" className="hidden text-rose-400 text-sm font-semibold px-4 h-11 rounded-xl border border-rose-500/30 bg-rose-500/10 hover:bg-rose-500/20">Hapus</button>
+      <button type="submit" className="flex-1 bg-gradient-to-r from-teal-500 to-emerald-500 text-slate-950 text-sm font-bold rounded-xl h-11 shadow-lg shadow-teal-500/25 transition">Simpan</button>
     </div>
   </form>
 </div>
 
 {/* ============ ALLOCATION FORM MODAL ============ */}
-<div id="allocationModal" className="modal-backdrop fixed inset-0 bg-ink/40 z-40 items-end md:items-center justify-center overflow-y-auto py-6">
-  <form id="allocationForm" className="bg-white rounded-t-2xl md:rounded-2xl w-full md:w-[440px] p-5 space-y-3.5 max-h-[92vh] overflow-y-auto">
+<div id="allocationModal" className="modal-backdrop fixed inset-0 bg-slate-950/80 backdrop-blur-md z-40 items-end md:items-center justify-center overflow-y-auto py-6">
+  <form id="allocationForm" className="bg-slate-900 border border-slate-700/80 text-slate-100 rounded-t-2xl md:rounded-2xl w-full md:w-[440px] p-5 space-y-3.5 max-h-[92vh] overflow-y-auto shadow-2xl">
     <div className="flex items-center justify-between">
-      <h3 className="font-display font-bold text-[15px]">Catat Dana Alokasi</h3>
-      <button type="button" className="modal-close text-inksoft text-xl leading-none">×</button>
+      <h3 className="font-display font-bold text-base text-white">Catat Dana Alokasi</h3>
+      <button type="button" className="modal-close text-slate-400 hover:text-white text-xl leading-none">×</button>
     </div>
     <input type="hidden" id="alc_id" />
     <div>
-      <label className="text-[12.5px] font-medium text-inksoft">Jenis Alokasi</label>
-      <select id="alc_category" className="w-full mt-1 border border-line rounded-xl h-11 px-3 text-sm bg-white">
+      <label className="text-[12.5px] font-medium text-slate-300">Jenis Alokasi</label>
+      <select id="alc_category" className="w-full mt-1 border border-slate-800 rounded-xl h-11 px-3 text-sm bg-slate-950 text-white focus:border-teal-500">
         <option value="darurat">Dana Darurat (Emergency Fund)</option>
         <option value="asuransi">Asuransi (Insurance)</option>
         <option value="investasi">Investasi</option>
@@ -2269,55 +2850,90 @@ export default function Home({ initialView = 'dashboard' }) {
       </select>
     </div>
     <div>
-      <label className="text-[12.5px] font-medium text-inksoft">Kategori</label>
-      <input id="alc_sub" list="alc_sub_list" className="w-full mt-1 border border-line rounded-xl h-11 px-3 text-sm" placeholder="Pilih / ketik" />
+      <label className="text-[12.5px] font-medium text-slate-300">Kategori</label>
+      <input id="alc_sub" list="alc_sub_list" className="w-full mt-1 border border-slate-800 rounded-xl h-11 px-3 text-sm bg-slate-950 text-white focus:border-teal-500" placeholder="Pilih / ketik" />
       <datalist id="alc_sub_list"></datalist>
     </div>
     <div className="grid grid-cols-2 gap-3">
       <div>
-        <label className="text-[12.5px] font-medium text-inksoft">Jumlah (Rp)</label>
-        <input id="alc_amount" type="number" min="0" step="1" required className="w-full mt-1 border border-line rounded-xl h-11 px-3 text-sm font-mono" placeholder="0" />
+        <label className="text-[12.5px] font-medium text-slate-300">Jumlah Terkumpul (Rp)</label>
+        <input id="alc_amount" type="number" min="0" step="1" required className="w-full mt-1 border border-slate-800 rounded-xl h-11 px-3 text-sm font-mono bg-slate-950 text-white focus:border-teal-500" placeholder="0" />
       </div>
       <div>
-        <label className="text-[12.5px] font-medium text-inksoft">Tanggal</label>
-        <input id="alc_date" type="date" required className="w-full mt-1 border border-line rounded-xl h-11 px-3 text-sm" />
+        <label className="text-[12.5px] font-medium text-slate-300">Target Dana (Rp)</label>
+        <input id="alc_target" type="number" min="0" step="1" className="w-full mt-1 border border-slate-800 rounded-xl h-11 px-3 text-sm font-mono bg-slate-950 text-white focus:border-teal-500" placeholder="Target Rp (opsional)" />
       </div>
     </div>
     <div>
-      <label className="text-[12.5px] font-medium text-inksoft">Catatan (opsional)</label>
-      <input id="alc_note" className="w-full mt-1 border border-line rounded-xl h-11 px-3 text-sm" />
+      <label className="text-[12.5px] font-medium text-slate-300">Tanggal</label>
+      <input id="alc_date" type="date" required className="w-full mt-1 border border-slate-800 rounded-xl h-11 px-3 text-sm bg-slate-950 text-white focus:border-teal-500" />
     </div>
     <div>
-      <label className="text-[12.5px] font-medium text-inksoft">Lampiran bukti (opsional)</label>
-      <input id="alc_attachment" type="file" accept="image/*,application/pdf" className="w-full mt-1" />
-      <div id="alc_attachment_preview" className="mt-2 text-sm"></div>
+      <label className="text-[12.5px] font-medium text-slate-300">Catatan (opsional)</label>
+      <input id="alc_note" className="w-full mt-1 border border-slate-800 rounded-xl h-11 px-3 text-sm bg-slate-950 text-white focus:border-teal-500" />
+    </div>
+    <div>
+      <label className="text-[12.5px] font-medium text-slate-300">Lampiran bukti (opsional)</label>
+      <label className="mt-1 flex flex-col items-center gap-1.5 w-full cursor-pointer border-2 border-dashed border-slate-800 rounded-xl py-3 px-4 hover:border-teal-500/50 hover:bg-slate-950/60 transition">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#2DD4BF" strokeWidth="2" strokeLinecap="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+        <span className="text-[12px] text-slate-300">Pilih gambar atau PDF <span className="text-teal-400 font-semibold">Browse</span></span>
+        <span className="text-[10.5px] text-slate-500">Maks 10 MB · JPG, PNG, WebP, PDF</span>
+        <input id="alc_attachment" type="file" accept="image/*,application/pdf" className="sr-only" />
+      </label>
+      <div id="alcAttachPreview" className="mt-2 hidden"></div>
     </div>
     <div className="flex gap-2 pt-1">
-      <button type="button" id="alc_delete" className="hidden text-rust-600 text-sm font-semibold px-4 h-11 rounded-xl border border-rust-200">Hapus</button>
-      <button type="submit" className="flex-1 bg-teal-700 hover:bg-teal-800 text-white text-sm font-semibold rounded-xl h-11">Simpan</button>
+      <button type="button" id="alc_delete" className="hidden text-rose-400 text-sm font-semibold px-4 h-11 rounded-xl border border-rose-500/30 bg-rose-500/10 hover:bg-rose-500/20">Hapus</button>
+      <button type="submit" className="flex-1 bg-gradient-to-r from-teal-500 to-emerald-500 text-slate-950 text-sm font-bold rounded-xl h-11 shadow-lg shadow-teal-500/25 transition">Simpan</button>
     </div>
   </form>
 </div>
 
-{/* ============ ATTACHMENT PREVIEW ============ */}
-<div id="attachmentPreviewModal" className="modal-backdrop fixed inset-0 bg-ink/50 z-50 items-center justify-center overflow-y-auto py-6">
-  <div className="bg-white rounded-2xl w-full max-w-3xl p-5 md:p-6 space-y-4 shadow-2xl">
-    <div className="flex items-center justify-between">
-      <div>
-        <p id="attachmentPreviewTitle" className="text-base font-semibold text-ink">Pratinjau Bukti</p>
-        <p className="text-[12px] text-inksoft">Gunakan tombol tutup untuk kembali.</p>
+{/* ============ ATTACHMENT LIGHTBOX MODAL ============ */}
+<div id="attachmentModal" className="modal-backdrop fixed inset-0 bg-slate-950/80 backdrop-blur-md z-[60] items-center justify-center p-4">
+  <div className="bg-slate-900 border border-slate-700/80 text-slate-100 rounded-2xl w-full max-w-3xl shadow-2xl flex flex-col max-h-[90vh]">
+    {/* Header */}
+    <div className="flex items-center justify-between px-5 py-4 border-b border-slate-800 shrink-0">
+      <div className="flex items-center gap-3">
+        <div className="w-9 h-9 rounded-xl bg-teal-500/20 border border-teal-500/30 flex items-center justify-center">
+          <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="#2DD4BF" strokeWidth="2" strokeLinecap="round"><path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/></svg>
+        </div>
+        <div>
+          <p className="font-display font-bold text-[15px] text-white">Pratinjau Bukti Transaksi</p>
+          <p className="text-[11.5px] text-slate-400">Klik untuk perbesar atau buka di tab baru</p>
+        </div>
       </div>
-      <button type="button" className="modal-close text-inksoft text-xl leading-none">×</button>
+      <div className="flex items-center gap-2">
+        <a id="attachOpenTab" href="#" target="_blank" rel="noopener noreferrer" className="text-[12px] font-semibold text-teal-300 bg-teal-500/20 border border-teal-500/30 rounded-lg px-3 py-1.5 hover:bg-teal-500/30 transition">Buka Tab Baru ↗</a>
+        <button type="button" onClick={() => window.__cashApp?.closeAttachmentPreview()} className="w-8 h-8 rounded-lg bg-slate-800 border border-slate-700 flex items-center justify-center text-slate-400 hover:text-white transition text-lg leading-none">×</button>
+      </div>
     </div>
-    <div id="attachmentPreviewContent" className="min-h-[280px] rounded-2xl bg-surface border border-line p-3"></div>
+    {/* Preview area */}
+    <div className="flex-1 overflow-auto p-4 flex items-center justify-center bg-slate-950/60 min-h-[260px]">
+      <img
+        id="attachPreviewImg"
+        src=""
+        alt="Bukti"
+        className="max-w-full max-h-[65vh] object-contain rounded-xl shadow-xl"
+        style={{display: 'none'}}
+        onError={(e) => { e.target.style.display='none'; }}
+      />
+      <iframe
+        id="attachPreviewPdf"
+        src=""
+        title="PDF Preview"
+        className="w-full rounded-xl border border-slate-800 bg-slate-900"
+        style={{display: 'none', height: '65vh'}}
+      />
+    </div>
   </div>
 </div>
 
 {/* ============ CONFIRM DELETE ============ */}
-<div id="confirmModal" className="modal-backdrop fixed inset-0 bg-ink/50 z-50 items-center justify-center">
-  <div className="bg-white rounded-2xl w-[320px] p-6 text-center space-y-4 shadow-2xl">
-    <div className="w-14 h-14 rounded-2xl bg-rust-50 flex items-center justify-center mx-auto">
-      <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#CE5A32" strokeWidth="2" strokeLinecap="round">
+<div id="confirmModal" className="modal-backdrop fixed inset-0 bg-slate-950/80 backdrop-blur-md z-50 items-center justify-center">
+  <div className="bg-slate-900 border border-slate-700/80 rounded-2xl w-[320px] p-6 text-center space-y-4 shadow-2xl">
+    <div className="w-14 h-14 rounded-2xl bg-rose-500/20 border border-rose-500/30 flex items-center justify-center mx-auto text-rose-400">
+      <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
         <polyline points="3 6 5 6 21 6"/>
         <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/>
         <path d="M10 11v6M14 11v6"/>
@@ -2325,12 +2941,12 @@ export default function Home({ initialView = 'dashboard' }) {
       </svg>
     </div>
     <div>
-      <p className="font-display font-bold text-[15px] text-ink">Hapus data ini?</p>
-      <p className="text-[12.5px] text-inksoft mt-1">Data yang dihapus tidak bisa dikembalikan.</p>
+      <p className="font-display font-bold text-base text-white">Hapus data ini?</p>
+      <p className="text-[12.5px] text-slate-400 mt-1">Data yang dihapus tidak dapat dikembalikan.</p>
     </div>
     <div className="flex gap-2.5">
-      <button id="confirmCancel" className="flex-1 h-11 rounded-xl border border-line text-sm font-medium text-ink hover:bg-surface transition">Batal</button>
-      <button id="confirmOk" className="flex-1 h-11 rounded-xl bg-rust-600 hover:bg-rust-700 text-white text-sm font-semibold transition">Ya, Hapus</button>
+      <button id="confirmCancel" className="flex-1 h-11 rounded-xl border border-slate-700 bg-slate-800/80 text-sm font-medium text-slate-300 hover:text-white transition">Batal</button>
+      <button id="confirmOk" className="flex-1 h-11 rounded-xl bg-gradient-to-r from-rose-600 to-red-600 hover:from-rose-500 hover:to-red-500 text-white text-sm font-bold transition shadow-lg shadow-rose-600/30">Ya, Hapus</button>
     </div>
   </div>
 </div>

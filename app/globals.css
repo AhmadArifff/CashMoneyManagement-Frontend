@@ -10,7 +10,8 @@
     scroll-behavior: smooth;
   }
   body {
-    @apply bg-paper text-ink;
+    background-color: #0F172A;
+    color: #F8FAFC;
     font-family: 'Inter', sans-serif;
     min-height: 100vh;
   }
@@ -24,9 +25,15 @@
     width: 8px;
     height: 8px;
   }
+  ::-webkit-scrollbar-track {
+    background: #0F172A;
+  }
   ::-webkit-scrollbar-thumb {
-    background: #D7ECE4;
+    background: #334155;
     border-radius: 8px;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    background: #0D9488;
   }
   .view {
     display: none;
@@ -42,58 +49,76 @@
   }
   .flatpickr-calendar {
     font-family: 'Inter', sans-serif;
-    box-shadow: 0 10px 40px -10px rgba(16, 26, 23, 0.35) !important;
-    border-radius: 14px !important;
-    overflow: hidden;
+    background: #1E293B !important;
+    border: 1px solid #334155 !important;
+    box-shadow: 0 20px 50px -10px rgba(0, 0, 0, 0.7) !important;
+    border-radius: 16px !important;
+    color: #F8FAFC !important;
+  }
+  .flatpickr-months .flatpickr-month,
+  .flatpickr-current-month .flatpickr-monthDropdown-months,
+  .flatpickr-weekday {
+    background: #1E293B !important;
+    color: #F8FAFC !important;
+    fill: #F8FAFC !important;
+  }
+  .flatpickr-day {
+    color: #CBD5E1 !important;
+  }
+  .flatpickr-day:hover {
+    background: #334155 !important;
+    color: #FFF !important;
   }
   .flatpickr-day.selected,
   .flatpickr-day.startRange,
   .flatpickr-day.endRange {
-    background: #1F6F5C !important;
-    border-color: #1F6F5C !important;
+    background: #0D9488 !important;
+    border-color: #0D9488 !important;
+    color: #FFF !important;
   }
   .flatpickr-day.inRange {
-    background: #D7ECE4 !important;
-    border-color: #D7ECE4 !important;
+    background: rgba(13, 148, 136, 0.25) !important;
+    border-color: transparent !important;
     box-shadow: none !important;
+    color: #2DD4BF !important;
   }
   .nav-link.active {
-    background: #124A3E;
-    color: #fff;
+    background: linear-gradient(135deg, #0D9488 0%, #059669 100%);
+    color: #FFFFFF !important;
+    box-shadow: 0 4px 14px rgba(13, 148, 136, 0.35);
   }
   .nav-link.active svg {
-    stroke: #fff;
+    stroke: #FFFFFF !important;
+  }
+  .tab-pill {
+    transition: all 0.2s ease;
   }
   .tab-pill.active {
-    background: #16594A;
-    color: #fff;
+    background: #0D9488 !important;
+    color: #FFFFFF !important;
+    border-color: #14B8A6 !important;
+    box-shadow: 0 4px 12px rgba(13, 148, 136, 0.3);
   }
   .toast {
-    animation: toastIn .25s ease-out;
+    animation: toastIn 0.25s cubic-bezier(0.16, 1, 0.3, 1);
   }
   @keyframes toastIn {
     from {
       opacity: 0;
-      transform: translateY(8px);
+      transform: translateY(12px) scale(0.95);
     }
     to {
       opacity: 1;
-      transform: translateY(0);
+      transform: translateY(0) scale(1);
     }
   }
   .cascade-bar {
-    transition: height .4s ease;
+    transition: height 0.4s ease;
   }
   input[type='date']::-webkit-calendar-picker-indicator {
-    filter: invert(30%) sepia(20%) saturate(500%);
-  }
-  @media print {
-    body * {
-      visibility: hidden;
-    }
+    filter: invert(80%) sepia(20%) saturate(500%);
   }
   main {
     transition: opacity 0.15s ease;
   }
 }
-
