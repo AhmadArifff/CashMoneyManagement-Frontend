@@ -1849,6 +1849,61 @@ export default function Home({ initialView = 'landing' }) {
           </div>
         </div>
       </div>`;
+
+        if (group === 'allocation') {
+          const consolidated = this.getConsolidatedAllocations(this.allocations.items);
+          if (consolidated.length) {
+            wrap.innerHTML += `
+              <div class="mt-4 pt-4 border-t border-slate-800/80 space-y-3">
+                <div class="flex items-center justify-between">
+                  <h3 class="text-xs font-bold uppercase tracking-wider text-amber-400 flex items-center gap-1.5">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/></svg>
+                    Ringkasan Target & Progres Dana Alokasi
+                  </h3>
+                  <span class="text-[11px] text-slate-400 font-mono">${consolidated.length} Dana Alokasi Terekam</span>
+                </div>
+                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+                  ${consolidated.map((item) => {
+                    const targetVal = Number(item.targetAmount || 0);
+                    const amtVal = Number(item.amount || 0);
+                    const pctVal = targetVal > 0 ? Math.min(100, Math.round((amtVal / targetVal) * 100)) : 0;
+                    const remVal = targetVal > 0 ? Math.max(0, targetVal - amtVal) : 0;
+                    const catLabel = ALLOCATION_CATS[item.category]?.label || item.category;
+                    const color = ALLOCATION_CATS[item.category]?.color || '#FBBF24';
+
+                    return `
+                      <div class="p-3.5 rounded-xl border border-slate-800 bg-slate-950/70 space-y-2.5 shadow-inner">
+                        <div class="flex items-center justify-between gap-2">
+                          <div class="min-w-0">
+                            <p class="text-xs font-bold text-white truncate flex items-center gap-1.5">
+                              <span class="w-2.5 h-2.5 rounded-full shrink-0" style="background:${color}"></span>
+                              ${item.subcategory}
+                            </p>
+                            <p class="text-[10px] text-slate-400 truncate">(${catLabel})</p>
+                          </div>
+                          ${targetVal > 0 ? `<span class="text-xs font-extrabold font-mono shrink-0 ${pctVal >= 100 ? 'text-emerald-400' : 'text-amber-400'}">${pctVal}%</span>` : '<span class="text-[10px] text-slate-500 font-mono">-</span>'}
+                        </div>
+                        ${targetVal > 0 ? `
+                          <div class="w-full bg-slate-900 border border-slate-800 rounded-full h-2 overflow-hidden">
+                            <div class="h-full rounded-full transition-all duration-500 ${pctVal >= 100 ? 'bg-gradient-to-r from-emerald-500 to-teal-400' : 'bg-gradient-to-r from-amber-500 to-teal-500'}" style="width:${pctVal}%"></div>
+                          </div>
+                          <div class="flex items-center justify-between text-[11px] font-mono">
+                            <span class="text-slate-400">Terkumpul: <strong class="text-amber-400 font-extrabold">${U.fmtIDR(amtVal)}</strong></span>
+                            <span class="text-slate-400">Target: <strong class="text-white">${U.fmtIDR(targetVal)}</strong></span>
+                          </div>
+                          ${remVal > 0 ? `<p class="text-[10px] text-slate-400 font-mono">Sisa Target: <strong class="text-slate-300">${U.fmtIDR(remVal)}</strong></p>` : `<p class="text-[10px] text-emerald-400 font-bold">✓ Target Tercapai!</p>`}
+                        ` : `
+                          <div class="flex items-center justify-between text-[11px] font-mono pt-1">
+                            <span class="text-slate-400">Jumlah Alokasi:</span>
+                            <strong class="text-amber-400 font-extrabold">${U.fmtIDR(amtVal)}</strong>
+                          </div>
+                        `}
+                      </div>`;
+                  }).join('')}
+                </div>
+              </div>`;
+          }
+        }
       }
 
       renderTrendGroup(group = 'expense') {
@@ -2117,6 +2172,38 @@ export default function Home({ initialView = 'landing' }) {
         `;
         list.querySelectorAll('[data-edit]').forEach((el) => el.addEventListener('click', () => this.openEntryForm('income', el.dataset.edit)));
       }
+      getConsolidatedAllocations(items) {
+        const groups = {};
+        items.forEach((x) => {
+          const key = `${x.category}::${x.subcategory}`;
+          if (!groups[key]) {
+            groups[key] = {
+              id: x.id,
+              ids: [x.id],
+              category: x.category,
+              subcategory: x.subcategory,
+              targetAmount: Number(x.targetAmount || 0),
+              amount: Number(x.amount || 0),
+              date: x.date,
+              attachmentUrl: x.attachmentUrl || '',
+              note: x.note || '',
+            };
+          } else {
+            groups[key].ids.push(x.id);
+            groups[key].amount += Number(x.amount || 0);
+            if (Number(x.targetAmount || 0) > 0) {
+              groups[key].targetAmount = Math.max(groups[key].targetAmount, Number(x.targetAmount || 0));
+            }
+            if (x.date > groups[key].date) {
+              groups[key].date = x.date;
+            }
+            if (x.attachmentUrl && !groups[key].attachmentUrl) {
+              groups[key].attachmentUrl = x.attachmentUrl;
+            }
+          }
+        });
+        return Object.values(groups);
+      }
       renderAllocations() {
         let items = this.allocations.inRange(this.range.start, this.range.end);
 
@@ -2125,6 +2212,7 @@ export default function Home({ initialView = 'landing' }) {
           items = items.filter((x) => (x.subcategory || '').toLowerCase().includes(searchVal) || (x.note || '').toLowerCase().includes(searchVal));
         }
 
+        const consolidated = this.getConsolidatedAllocations(items);
         const byCat = Aggregator.byCategory(items);
         const cardsEl = document.getElementById('allocationCards');
         if (cardsEl) {
@@ -2140,7 +2228,7 @@ export default function Home({ initialView = 'landing' }) {
         }
         const list = document.getElementById('allocationList');
         if (!list) return;
-        let sorted = items.slice().sort((a, b) => b.date.localeCompare(a.date));
+        let sorted = consolidated.slice().sort((a, b) => b.date.localeCompare(a.date));
 
         const perPageVal = document.getElementById('allocationPerPage')?.value || '20';
         if (perPageVal !== 'all') {
