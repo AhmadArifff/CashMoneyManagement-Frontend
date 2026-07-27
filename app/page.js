@@ -1680,14 +1680,117 @@ export default function Home({ initialView = 'landing' }) {
         const badge = document.getElementById('balanceBadge');
         if (card && badge) {
           if (balance < 0) {
-            card.className = 'rounded-2xl shadow-xl border p-4.5 bg-gradient-to-br from-rose-950/80 via-slate-900 to-slate-900 border-rose-500/50 flex items-center justify-between transition';
+            card.className = 'rounded-3xl shadow-2xl border p-5 sm:p-6 bg-gradient-to-br from-rose-950/80 via-slate-900 to-slate-900 border-rose-500/50 flex items-center justify-between min-w-0 transition';
             badge.textContent = 'DEFISIT';
-            badge.className = 'text-[10px] font-extrabold bg-rose-500/20 text-rose-300 border border-rose-500/40 rounded-full px-2 py-0.5';
+            badge.className = 'text-[10px] font-black bg-rose-500/20 text-rose-300 border border-rose-500/40 rounded-full px-2.5 py-0.5 shadow-sm';
           } else {
-            card.className = 'rounded-2xl shadow-xl border p-4.5 bg-gradient-to-br from-teal-950/80 via-slate-900 to-slate-900 border-teal-500/50 flex items-center justify-between transition';
+            card.className = 'rounded-3xl shadow-2xl border p-5 sm:p-6 bg-gradient-to-br from-teal-950/80 via-slate-900 to-slate-900 border-teal-500/50 flex items-center justify-between min-w-0 transition';
             badge.textContent = 'SURPLUS';
-            badge.className = 'text-[10px] font-extrabold bg-teal-500/20 text-teal-300 border border-teal-500/40 rounded-full px-2 py-0.5';
+            badge.className = 'text-[10px] font-black bg-teal-500/20 text-teal-300 border border-teal-500/40 rounded-full px-2.5 py-0.5 shadow-sm';
           }
+        }
+
+        // Render Group Breakdown - Incomes
+        const incGroupEl = document.getElementById('dashGroupIncomes');
+        const incBadgeEl = document.getElementById('dashIncTotalBadge');
+        if (incBadgeEl) incBadgeEl.textContent = U.fmtIDR(totalInc);
+        if (incGroupEl) {
+          const catList = [
+            { key: 'earned', label: 'Earned / Active Income', desc: 'Gaji, Bonus, Freelance', color: 'emerald' },
+            { key: 'passive', label: 'Passive Income', desc: 'Sewa, Royalty, Bisnis', color: 'teal' },
+            { key: 'portfolio', label: 'Portfolio / Investment', desc: 'Dividen, Saham, Crypto', color: 'cyan' }
+          ];
+          incGroupEl.innerHTML = catList.map((c) => {
+            const val = inc.filter((x) => x.category === c.key).reduce((s, x) => s + Number(x.amount), 0);
+            const pct = totalInc > 0 ? Math.round((val / totalInc) * 100) : 0;
+            return `<div class="p-3.5 rounded-2xl border border-slate-800 bg-slate-950/70 space-y-2">
+              <div class="flex items-center justify-between gap-2">
+                <div>
+                  <p class="text-xs font-bold text-white">${c.label}</p>
+                  <p class="text-[10.5px] text-slate-400">${c.desc}</p>
+                </div>
+                <div class="text-right">
+                  <p class="font-mono text-sm font-extrabold text-emerald-400">${U.fmtIDR(val)}</p>
+                  <p class="text-[10.5px] font-semibold text-slate-400">${pct}% dari total</p>
+                </div>
+              </div>
+              <div class="w-full h-1.5 bg-slate-900 rounded-full overflow-hidden">
+                <div class="h-full bg-gradient-to-r from-teal-500 to-emerald-400 rounded-full" style="width:${pct}%"></div>
+              </div>
+            </div>`;
+          }).join('');
+        }
+
+        // Render Group Breakdown - Expenses
+        const expGroupEl = document.getElementById('dashGroupExpenses');
+        const expBadgeEl = document.getElementById('dashExpTotalBadge');
+        if (expBadgeEl) expBadgeEl.textContent = U.fmtIDR(totalExp);
+        if (expGroupEl) {
+          const catList = [
+            { key: 'tetap', label: 'Pengeluaran Tetap', desc: 'Sewa, KPR, Listrik, Air, Kebersihan' },
+            { key: 'berkala', label: 'Pengeluaran Berkala', desc: 'Asuransi, Pajak, Servis Kendaraan' },
+            { key: 'dinamis', label: 'Dinamis / Variabel', desc: 'Makan, Belanja, Hiburan, Transport' }
+          ];
+          expGroupEl.innerHTML = catList.map((c) => {
+            const val = exp.filter((x) => x.category === c.key).reduce((s, x) => s + Number(x.amount), 0);
+            const pct = totalExp > 0 ? Math.round((val / totalExp) * 100) : 0;
+            return `<div class="p-3.5 rounded-2xl border border-slate-800 bg-slate-950/70 space-y-2">
+              <div class="flex items-center justify-between gap-2">
+                <div>
+                  <p class="text-xs font-bold text-white">${c.label}</p>
+                  <p class="text-[10.5px] text-slate-400">${c.desc}</p>
+                </div>
+                <div class="text-right">
+                  <p class="font-mono text-sm font-extrabold text-rose-400">${U.fmtIDR(val)}</p>
+                  <p class="text-[10.5px] font-semibold text-slate-400">${pct}% dari total</p>
+                </div>
+              </div>
+              <div class="w-full h-1.5 bg-slate-900 rounded-full overflow-hidden">
+                <div class="h-full bg-gradient-to-r from-rose-500 to-amber-500 rounded-full" style="width:${pct}%"></div>
+              </div>
+            </div>`;
+          }).join('');
+        }
+
+        // Render Group Breakdown - Allocations & Targets
+        const alcGroupEl = document.getElementById('dashGroupAllocations');
+        const alcBadgeEl = document.getElementById('dashAlcTotalBadge');
+        if (alcBadgeEl) alcBadgeEl.textContent = U.fmtIDR(totalAlc);
+        if (alcGroupEl) {
+          const catMap = {
+            darurat: { label: 'Dana Darurat (Emergency)', desc: 'Persiapan kondisi darurat' },
+            asuransi: { label: 'Asuransi (Insurance)', desc: 'Kesehatan & jiwa' },
+            investasi: { label: 'Investasi', desc: 'Pengembangan aset jangka panjang' },
+            cadangan: { label: 'Dana Cadangan / Likuiditas', desc: 'Dana simpanan tambahan' }
+          };
+          
+          alcGroupEl.innerHTML = Object.keys(catMap).map((catKey) => {
+            const catItems = alc.filter((x) => x.category === catKey);
+            const collected = catItems.reduce((s, x) => s + Number(x.amount), 0);
+            const target = catItems.reduce((s, x) => s + Number(x.targetAmount || 0), 0);
+            const pct = target > 0 ? Math.min(100, Math.round((collected / target) * 100)) : (collected > 0 ? 100 : 0);
+            const remaining = target > collected ? target - collected : 0;
+
+            return `<div class="p-3.5 rounded-2xl border border-slate-800 bg-slate-950/70 space-y-2">
+              <div class="flex items-center justify-between gap-2">
+                <div>
+                  <p class="text-xs font-bold text-white">${catMap[catKey].label}</p>
+                  <p class="text-[10.5px] text-slate-400">${catMap[catKey].desc}</p>
+                </div>
+                <div class="text-right">
+                  <p class="font-mono text-sm font-extrabold text-amber-400">${U.fmtIDR(collected)}</p>
+                  <p class="text-[10.5px] font-semibold text-slate-400">${target > 0 ? `Target: ${U.fmtIDR(target)}` : 'Tanpa target'}</p>
+                </div>
+              </div>
+              <div class="w-full h-2 bg-slate-900 rounded-full overflow-hidden p-0.5 border border-slate-800">
+                <div class="h-full bg-gradient-to-r from-amber-500 to-teal-400 rounded-full transition-all duration-500" style="width:${pct}%"></div>
+              </div>
+              <div class="flex items-center justify-between text-[10.5px] text-slate-400 pt-0.5">
+                <span>Pencapaian: <strong class="text-teal-300 font-mono">${pct}%</strong></span>
+                <span>${remaining > 0 ? `Sisa: <strong class="text-amber-300 font-mono">${U.fmtIDR(remaining)}</strong>` : (collected > 0 ? '<strong class="text-emerald-400 font-semibold">✓ Target Terpenuhi</strong>' : '-')}</span>
+              </div>
+            </div>`;
+          }).join('');
         }
         const unpaid = this.expenses.items.filter((x) => (x.category === 'tetap' || x.category === 'berkala') && x.status === 'unpaid' && !x.isEstimate).sort((a, b) => a.date.localeCompare(b.date));
         const bell = document.getElementById('alertDot');
@@ -2443,48 +2546,99 @@ export default function Home({ initialView = 'landing' }) {
         </div>
 
         {/* summary cards */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-          <div className="bg-slate-900/90 backdrop-blur-md rounded-2xl border border-slate-800/90 p-4.5 shadow-xl hover:border-emerald-500/40 transition flex items-center justify-between">
-            <div className="space-y-1 min-w-0">
-              <p className="text-xs font-semibold text-slate-400">Total Pemasukan</p>
-              <p id="sumIncome" className="font-mono font-extrabold text-xl text-emerald-400 truncate">Rp 0</p>
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-5">
+          <div className="bg-slate-900/95 backdrop-blur-xl rounded-3xl border border-slate-800/90 p-5 sm:p-6 shadow-2xl hover:border-emerald-500/50 transition flex items-center justify-between min-w-0">
+            <div className="space-y-1.5 min-w-0 flex-1">
+              <p className="text-[11.5px] sm:text-xs font-bold uppercase tracking-wider text-slate-400">Total Pemasukan</p>
+              <p id="sumIncome" className="font-mono font-black text-2xl sm:text-3xl text-emerald-400 truncate tracking-tight">Rp 0</p>
             </div>
-            <div className="w-10 h-10 rounded-xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center text-emerald-400 shrink-0">
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M12 19V5M5 12l7-7 7 7"/></svg>
-            </div>
-          </div>
-
-          <div className="bg-slate-900/90 backdrop-blur-md rounded-2xl border border-slate-800/90 p-4.5 shadow-xl hover:border-rose-500/40 transition flex items-center justify-between">
-            <div className="space-y-1 min-w-0">
-              <p className="text-xs font-semibold text-slate-400">Total Pengeluaran</p>
-              <p id="sumExpense" className="font-mono font-extrabold text-xl text-rose-400 truncate">Rp 0</p>
-            </div>
-            <div className="w-10 h-10 rounded-xl bg-rose-500/10 border border-rose-500/20 flex items-center justify-center text-rose-400 shrink-0">
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M12 5v14M5 12l7 7 7-7"/></svg>
+            <div className="w-12 h-12 sm:w-14 sm:h-14 rounded-2xl bg-emerald-500/10 border border-emerald-500/30 flex items-center justify-center text-emerald-400 shrink-0 ml-3 shadow-lg shadow-emerald-500/10">
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M12 19V5M5 12l7-7 7 7"/></svg>
             </div>
           </div>
 
-          <div className="bg-slate-900/90 backdrop-blur-md rounded-2xl border border-slate-800/90 p-4.5 shadow-xl hover:border-amber-500/40 transition flex items-center justify-between">
-            <div className="space-y-1 min-w-0">
-              <p className="text-xs font-semibold text-slate-400">Dana Alokasi</p>
-              <p id="sumAllocation" className="font-mono font-extrabold text-xl text-amber-400 truncate">Rp 0</p>
+          <div className="bg-slate-900/95 backdrop-blur-xl rounded-3xl border border-slate-800/90 p-5 sm:p-6 shadow-2xl hover:border-rose-500/50 transition flex items-center justify-between min-w-0">
+            <div className="space-y-1.5 min-w-0 flex-1">
+              <p className="text-[11.5px] sm:text-xs font-bold uppercase tracking-wider text-slate-400">Total Pengeluaran</p>
+              <p id="sumExpense" className="font-mono font-black text-2xl sm:text-3xl text-rose-400 truncate tracking-tight">Rp 0</p>
             </div>
-            <div className="w-10 h-10 rounded-xl bg-amber-500/10 border border-amber-500/20 flex items-center justify-center text-amber-400 shrink-0">
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/></svg>
+            <div className="w-12 h-12 sm:w-14 sm:h-14 rounded-2xl bg-rose-500/10 border border-rose-500/30 flex items-center justify-center text-rose-400 shrink-0 ml-3 shadow-lg shadow-rose-500/10">
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M12 5v14M5 12l7 7 7-7"/></svg>
             </div>
           </div>
 
-          <div id="sumBalanceCard" className="rounded-2xl shadow-xl border p-4.5 bg-gradient-to-br from-teal-950 via-slate-900 to-slate-900 border-teal-500/50 flex items-center justify-between">
-            <div className="space-y-1 min-w-0">
-              <p className="text-xs text-teal-300 font-semibold flex items-center gap-1.5">
-                Saldo Bersih
-                <span id="balanceBadge" className="text-[10px] font-extrabold bg-teal-500/20 text-teal-300 border border-teal-500/40 rounded-full px-2 py-0.5">SURPLUS</span>
-              </p>
-              <p id="sumBalance" className="font-mono font-extrabold text-xl text-white truncate mt-1">Rp 0</p>
+          <div className="bg-slate-900/95 backdrop-blur-xl rounded-3xl border border-slate-800/90 p-5 sm:p-6 shadow-2xl hover:border-amber-500/50 transition flex items-center justify-between min-w-0">
+            <div className="space-y-1.5 min-w-0 flex-1">
+              <p className="text-[11.5px] sm:text-xs font-bold uppercase tracking-wider text-slate-400">Dana Alokasi</p>
+              <p id="sumAllocation" className="font-mono font-black text-2xl sm:text-3xl text-amber-400 truncate tracking-tight">Rp 0</p>
             </div>
-            <div className="w-10 h-10 rounded-xl bg-teal-500/20 border border-teal-500/30 flex items-center justify-center text-teal-300 shrink-0">
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
+            <div className="w-12 h-12 sm:w-14 sm:h-14 rounded-2xl bg-amber-500/10 border border-amber-500/30 flex items-center justify-center text-amber-400 shrink-0 ml-3 shadow-lg shadow-amber-500/10">
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/></svg>
             </div>
+          </div>
+
+          <div id="sumBalanceCard" className="rounded-3xl shadow-2xl border p-5 sm:p-6 bg-gradient-to-br from-teal-950/80 via-slate-900 to-slate-900 border-teal-500/50 flex items-center justify-between min-w-0 transition">
+            <div className="space-y-1.5 min-w-0 flex-1">
+              <div className="flex flex-wrap items-center gap-2">
+                <p className="text-[11.5px] sm:text-xs font-bold uppercase tracking-wider text-teal-300">Saldo Bersih</p>
+                <span id="balanceBadge" className="text-[10px] font-black bg-teal-500/20 text-teal-300 border border-teal-500/40 rounded-full px-2.5 py-0.5 shadow-sm">SURPLUS</span>
+              </div>
+              <p id="sumBalance" className="font-mono font-black text-2xl sm:text-3xl text-white truncate tracking-tight">Rp 0</p>
+            </div>
+            <div className="w-12 h-12 sm:w-14 sm:h-14 rounded-2xl bg-teal-500/20 border border-teal-500/30 flex items-center justify-center text-teal-300 shrink-0 ml-3 shadow-lg shadow-teal-500/10">
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
+            </div>
+          </div>
+        </div>
+
+        {/* category group breakdowns */}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
+          <div className="bg-slate-900/90 backdrop-blur-xl rounded-3xl border border-slate-800/90 p-5 sm:p-6 shadow-xl space-y-4">
+            <div className="flex items-center justify-between border-b border-slate-800 pb-3">
+              <div className="flex items-center gap-2.5">
+                <div className="w-8.5 h-8.5 rounded-xl bg-emerald-500/20 border border-emerald-500/30 flex items-center justify-center text-emerald-400 shrink-0">
+                  <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M12 19V5M5 12l7-7 7 7"/></svg>
+                </div>
+                <div>
+                  <h3 className="font-display font-bold text-sm text-white">Pemasukan (per Kelompok)</h3>
+                  <p className="text-[11px] text-slate-400">Active, Passive & Portfolio</p>
+                </div>
+              </div>
+              <span id="dashIncTotalBadge" className="font-mono text-xs font-bold text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 px-2.5 py-1 rounded-xl">Rp 0</span>
+            </div>
+            <div id="dashGroupIncomes" className="space-y-3"></div>
+          </div>
+
+          <div className="bg-slate-900/90 backdrop-blur-xl rounded-3xl border border-slate-800/90 p-5 sm:p-6 shadow-xl space-y-4">
+            <div className="flex items-center justify-between border-b border-slate-800 pb-3">
+              <div className="flex items-center gap-2.5">
+                <div className="w-8.5 h-8.5 rounded-xl bg-rose-500/20 border border-rose-500/30 flex items-center justify-center text-rose-400 shrink-0">
+                  <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M12 5v14M5 12l7 7 7-7"/></svg>
+                </div>
+                <div>
+                  <h3 className="font-display font-bold text-sm text-white">Pengeluaran (per Kelompok)</h3>
+                  <p className="text-[11px] text-slate-400">Tetap, Berkala & Dinamis</p>
+                </div>
+              </div>
+              <span id="dashExpTotalBadge" className="font-mono text-xs font-bold text-rose-400 bg-rose-500/10 border border-rose-500/20 px-2.5 py-1 rounded-xl">Rp 0</span>
+            </div>
+            <div id="dashGroupExpenses" className="space-y-3"></div>
+          </div>
+
+          <div className="bg-slate-900/90 backdrop-blur-xl rounded-3xl border border-slate-800/90 p-5 sm:p-6 shadow-xl space-y-4">
+            <div className="flex items-center justify-between border-b border-slate-800 pb-3">
+              <div className="flex items-center gap-2.5">
+                <div className="w-8.5 h-8.5 rounded-xl bg-amber-500/20 border border-amber-500/30 flex items-center justify-center text-amber-400 shrink-0">
+                  <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/></svg>
+                </div>
+                <div>
+                  <h3 className="font-display font-bold text-sm text-white">Dana Alokasi & Target</h3>
+                  <p className="text-[11px] text-slate-400">Capaian terkumpul vs target</p>
+                </div>
+              </div>
+              <span id="dashAlcTotalBadge" className="font-mono text-xs font-bold text-amber-400 bg-amber-500/10 border border-amber-500/20 px-2.5 py-1 rounded-xl">Rp 0</span>
+            </div>
+            <div id="dashGroupAllocations" className="space-y-3"></div>
           </div>
         </div>
 
