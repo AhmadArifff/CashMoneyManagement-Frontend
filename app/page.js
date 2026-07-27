@@ -2350,49 +2350,137 @@ export default function Home({ initialView = 'landing' }) {
               const sub = items.filter((x) => x.category === k);
               const tot = sub.reduce((s, x) => s + Number(x.amount), 0);
               if (!tot) return '';
-              return `<tr class="border-b border-line"><td class="py-1.5 pr-2" style="color:${defs[k].color}">● ${defs[k].label}</td><td class="py-1.5 text-right font-mono font-semibold">${U.fmtIDR(tot)}</td></tr>`;
+              return `<tr class="border-b border-slate-800"><td class="py-1.5 pr-2 text-slate-300" style="color:${defs[k].color}">● ${defs[k].label}</td><td class="py-1.5 text-right font-mono font-bold text-white">${U.fmtIDR(tot)}</td></tr>`;
             })
-            .join('') || `<tr><td class="py-3 text-inksoft text-center" colspan="2">Tidak ada data</td></tr>`;
+            .join('') || `<tr><td class="py-3 text-slate-500 text-center" colspan="2">Tidak ada data</td></tr>`;
         document.getElementById('repExpenseTable').innerHTML = rowsHtml(EXPENSE_CATS, exp);
         document.getElementById('repIncomeTable').innerHTML = rowsHtml(INCOME_CATS, inc);
         document.getElementById('repAllocationTable').innerHTML = rowsHtml(ALLOCATION_CATS, alc);
-        document.getElementById('repSuggestions').innerHTML = this.generateSuggestions({ exp, inc, alc, totalInc, totalExp, totalAlc, balance })
-          .map((s) => `<li>${s}</li>`)
+
+        const health = this.generateFinancialInsights({ exp, inc, alc, totalInc, totalExp, totalAlc, balance });
+        const healthContainer = document.getElementById('reportHealthContainer');
+        if (healthContainer) {
+          healthContainer.innerHTML = `
+            <div class="rounded-2xl border border-slate-800 bg-slate-950/80 p-5 space-y-4 shadow-xl">
+              <div class="flex flex-wrap items-center justify-between gap-3 border-b border-slate-800/80 pb-3.5">
+                <div class="flex items-center gap-3">
+                  <div class="w-12 h-12 rounded-2xl bg-teal-500/10 border border-teal-500/30 flex items-center justify-center text-teal-400 font-extrabold text-xl shadow-md">
+                    ${health.score}
+                  </div>
+                  <div>
+                    <h3 class="font-display font-bold text-base text-white flex items-center gap-2">
+                      Skor Kesehatan Keuangan: <span class="text-teal-400 font-mono font-extrabold">${health.score}/100</span>
+                    </h3>
+                    <p class="text-xs text-slate-400">Analisis otomatis & rekomendasi pintar sistem untuk manajemen keuangan Anda.</p>
+                  </div>
+                </div>
+                <div class="w-full sm:w-48 bg-slate-900 border border-slate-800 rounded-full h-3 overflow-hidden shadow-inner">
+                  <div class="h-full rounded-full transition-all duration-700 ${health.score >= 80 ? 'bg-gradient-to-r from-emerald-500 to-teal-400' : health.score >= 60 ? 'bg-gradient-to-r from-amber-500 to-teal-500' : 'bg-gradient-to-r from-rose-500 to-amber-500'}" style="width:${health.score}%"></div>
+                </div>
+              </div>
+
+              <div class="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                ${health.metrics.map((m) => `
+                  <div class="p-3 rounded-xl border border-slate-800/80 bg-slate-900/60 space-y-1">
+                    <p class="text-[11px] text-slate-400 font-medium">${m.label}</p>
+                    <div class="flex items-baseline justify-between gap-1">
+                      <span class="font-mono text-sm md:text-base font-extrabold text-white">${m.val}</span>
+                      <span class="text-[10px] font-bold ${m.color}">${m.status}</span>
+                    </div>
+                  </div>
+                `).join('')}
+              </div>
+
+              <div class="space-y-2.5 pt-1">
+                <h4 class="text-xs font-bold uppercase tracking-wider text-teal-300 flex items-center gap-1.5">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
+                  Wawasan & Rekomendasi Pintar Perencana Keuangan
+                </h4>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+                  ${health.insights.map((ins) => {
+                    const borderCol = ins.type === 'success' ? 'border-emerald-500/30 bg-emerald-500/10' : ins.type === 'warning' ? 'border-amber-500/30 bg-amber-500/10' : ins.type === 'danger' ? 'border-rose-500/30 bg-rose-500/10' : 'border-teal-500/30 bg-teal-500/10';
+                    return `
+                      <div class="p-3.5 rounded-xl border ${borderCol} space-y-1 shadow-sm">
+                        <p class="text-xs font-bold text-white flex items-center gap-1.5">
+                          <span>${ins.icon}</span> ${ins.title}
+                        </p>
+                        <p class="text-[12px] text-slate-300 leading-relaxed">${ins.text}</p>
+                      </div>`;
+                  }).join('')}
+                </div>
+              </div>
+            </div>`;
+        }
+
+        document.getElementById('repSuggestions').innerHTML = health.insights
+          .map((ins) => `<li class="leading-relaxed"><strong class="text-white">${ins.icon} ${ins.title}:</strong> ${ins.text}</li>`)
           .join('');
       }
-      generateSuggestions({ exp, inc, alc, totalInc, totalExp, totalAlc, balance }) {
-        const s = [];
-        if (totalInc === 0) {
-          s.push('Belum ada pemasukan tercatat pada periode ini — tambahkan data pemasukan agar laporan lebih akurat.');
+      generateFinancialInsights({ exp, inc, alc, totalInc, totalExp, totalAlc, balance }) {
+        let score = 70;
+        const metrics = [];
+        const insights = [];
+
+        const savingRatio = totalInc > 0 ? (totalAlc / totalInc) * 100 : 0;
+        if (savingRatio >= 20) {
+          score += 15;
+          metrics.push({ label: 'Rasio Tabungan & Alokasi', val: `${Math.round(savingRatio)}%`, status: 'Sangat Sehat', color: 'text-emerald-400' });
+          insights.push({ type: 'success', icon: '💡', title: 'Rasio Alokasi Finansial Prima', text: `Anda telah mengalokasikan ${Math.round(savingRatio)}% dari total pemasukan. Ini di atas standar sehat 20% yang direkomendasikan perencana keuangan.` });
+        } else if (savingRatio > 0) {
+          score += 5;
+          metrics.push({ label: 'Rasio Tabungan & Alokasi', val: `${Math.round(savingRatio)}%`, status: 'Cukup Baik', color: 'text-amber-400' });
+          insights.push({ type: 'warning', icon: '💡', title: 'Tingkatkan Alokasi Tabungan', text: `Rasio alokasi Anda saat ini ${Math.round(savingRatio)}%. Cobalah tingkatkan secara bertahap menuju target 20% dari total pemasukan.` });
+        } else {
+          score -= 10;
+          metrics.push({ label: 'Rasio Tabungan & Alokasi', val: '0%', status: 'Perlu Perhatian', color: 'text-rose-400' });
+          insights.push({ type: 'danger', icon: '⚠️', title: 'Belum Ada Alokasi Tabungan', text: 'Belum ada dana alokasi yang disisihkan pada periode ini. Sisihkan alokasi di awal bulan sebelum melakukan pengeluaran dinamis.' });
         }
-        if (balance < 0) {
-          s.push(`Pengeluaran melebihi pemasukan sebesar ${U.fmtIDR(Math.abs(balance))} pada periode ini. Prioritaskan pengeluaran tetap dan tinjau ulang pengeluaran dinamis/variabel.`);
-        } else if (totalInc > 0) {
-          s.push(`Saldo bersih periode ini positif sebesar ${U.fmtIDR(balance)}. Pertimbangkan mengalokasikan sebagian surplus ke dana darurat atau investasi.`);
+
+        const expRatio = totalInc > 0 ? (totalExp / totalInc) * 100 : 0;
+        if (totalInc > 0 && expRatio <= 60) {
+          score += 15;
+          metrics.push({ label: 'Rasio Pengeluaran', val: `${Math.round(expRatio)}%`, status: 'Efisien', color: 'text-emerald-400' });
+          insights.push({ type: 'success', icon: '📊', title: 'Pengeluaran Sangat Efisien', text: `Pengeluaran Anda hanya ${Math.round(expRatio)}% dari total pemasukan. Anda memiliki ruang finansial yang sangat aman.` });
+        } else if (totalInc > 0 && expRatio <= 85) {
+          metrics.push({ label: 'Rasio Pengeluaran', val: `${Math.round(expRatio)}%`, status: 'Normal', color: 'text-amber-400' });
+          insights.push({ type: 'info', icon: '📊', title: 'Pengeluaran Terkendali', text: `Pengeluaran berada di level ${Math.round(expRatio)}% dari pemasukan. Pantau pos pengeluaran dinamis agar tidak terus meningkat.` });
+        } else if (balance < 0) {
+          score -= 20;
+          metrics.push({ label: 'Rasio Pengeluaran', val: `${totalInc > 0 ? Math.round(expRatio) : 100}%`, status: 'Defisit', color: 'text-rose-400' });
+          insights.push({ type: 'danger', icon: '🚨', title: 'Peringatan Defisit Anggaran', text: `Pengeluaran melebihi pemasukan sebesar ${U.fmtIDR(Math.abs(balance))}. Evaluasi dan tekan segera pengeluaran non-esensial.` });
         }
-        const dinamisTotal = exp.filter((x) => x.category === 'dinamis').reduce((s2, x) => s2 + Number(x.amount), 0);
-        if (totalInc > 0 && dinamisTotal / totalInc > 0.3) {
-          s.push(`Pengeluaran dinamis/variabel mencapai ${Math.round((dinamisTotal / totalInc) * 100)}% dari pemasukan. Idealnya di bawah 30% agar ruang tabungan tetap sehat.`);
+
+        const dinamisTotal = exp.filter((x) => x.category === 'dinamis').reduce((s, x) => s + Number(x.amount || 0), 0);
+        const dinamisRatio = totalInc > 0 ? (dinamisTotal / totalInc) * 100 : 0;
+        if (totalInc > 0 && dinamisRatio > 30) {
+          score -= 10;
+          insights.push({ type: 'warning', icon: '🛍️', title: 'Evaluasi Gaya Hidup & Variabel', text: `Pengeluaran dinamis/variabel mencapai ${Math.round(dinamisRatio)}% (${U.fmtIDR(dinamisTotal)}). Batasi kebutuhan sekunder/rekreasi hingga di bawah 30%.` });
         }
-        const unpaidCount = this.expenses.items.filter((x) => (x.category === 'tetap' || x.category === 'berkala') && x.status === 'unpaid').length;
-        if (unpaidCount > 0) {
-          s.push(`Ada ${unpaidCount} tagihan tetap/berkala yang belum dibayar. Segera lunasi untuk menghindari denda atau bunga keterlambatan.`);
-        }
-        const daruratTotal = this.allocations.items.filter((x) => x.category === 'darurat').reduce((s2, x) => s2 + Number(x.amount), 0);
+
+        const daruratTotal = this.allocations.items.filter((x) => x.category === 'darurat').reduce((s, x) => s + Number(x.amount || 0), 0);
         const avgMonthlyExp = (Aggregator.total(this.expenses.items.filter((x) => !x.isEstimate)) / Math.max(1, new Set(this.expenses.items.map((x) => U.monthKey(x.date))).size)) || 0;
-        if (avgMonthlyExp > 0 && daruratTotal < avgMonthlyExp * 3) {
-          s.push(`Total dana darurat (${U.fmtIDR(daruratTotal)}) masih di bawah 3x rata-rata pengeluaran bulanan (${U.fmtIDR(avgMonthlyExp)}). Pertimbangkan menambah alokasi dana darurat secara bertahap.`);
+        const monthsCovered = avgMonthlyExp > 0 ? (daruratTotal / avgMonthlyExp).toFixed(1) : '0';
+
+        if (avgMonthlyExp > 0 && daruratTotal >= avgMonthlyExp * 6) {
+          score += 10;
+          metrics.push({ label: 'Dana Darurat', val: `${monthsCovered} bln`, status: 'Sangat Aman', color: 'text-emerald-400' });
+          insights.push({ type: 'success', icon: '🛡️', title: 'Fondasi Dana Darurat Kuat', text: `Dana darurat Anda mencukupi ${monthsCovered} bulan pengeluaran. Fondasi keamanan finansial Anda sangat tangguh.` });
+        } else {
+          metrics.push({ label: 'Dana Darurat', val: `${monthsCovered} bln`, status: 'Perlu Ditambah', color: 'text-amber-400' });
+          insights.push({ type: 'warning', icon: '🛡️', title: 'Target Dana Darurat', text: `Dana darurat (${U.fmtIDR(daruratTotal)}) baru mencukupi ${monthsCovered} bulan pengeluaran bulanan (${U.fmtIDR(avgMonthlyExp)}). Idealnya minimal 3 hingga 6 bulan.` });
         }
-        const investasiTotal = this.allocations.items.filter((x) => x.category === 'investasi').reduce((s2, x) => s2 + Number(x.amount), 0);
-        if (investasiTotal === 0) {
-          s.push('Belum ada alokasi ke investasi. Mulai dari nominal kecil secara rutin bisa membantu nilai dana tidak tergerus inflasi.');
+
+        const unpaidBills = this.expenses.items.filter((x) => (x.category === 'tetap' || x.category === 'berkala') && x.status === 'unpaid');
+        if (unpaidBills.length > 0) {
+          score -= 15;
+          insights.push({ type: 'danger', icon: '⏰', title: 'Tagihan Belum Terbayar', text: `Terdapat ${unpaidBills.length} tagihan tetap/berkala belum dibayar. Segera lunasi untuk menghindari denda keterlambatan.` });
+        } else {
+          score += 5;
         }
-        const passivePortfolio = this.incomes.items.filter((x) => x.category === 'passive' || x.category === 'portfolio').reduce((s2, x) => s2 + Number(x.amount), 0);
-        if (passivePortfolio === 0) {
-          s.push('Sumber pemasukan masih sepenuhnya dari earned/active income. Diversifikasi ke passive atau portfolio income dapat menambah ketahanan finansial jangka panjang.');
-        }
-        if (s.length === 0) s.push('Kondisi keuangan pada periode ini terlihat stabil. Terus pantau secara berkala untuk menjaga konsistensi.');
-        return s;
+
+        score = U.clamp(score, 10, 100);
+
+        return { score, metrics, insights };
       }
       async exportPdf() {
         const btn = document.getElementById('exportPdfBtn');
@@ -2901,6 +2989,8 @@ export default function Home({ initialView = 'landing' }) {
             <div className="rounded-xl border border-teal-500/40 p-3.5 bg-gradient-to-r from-teal-900 to-slate-900"><p className="text-[11px] text-teal-300 font-medium">Saldo Akhir</p><p id="repBalance" className="font-mono font-bold text-white text-lg mt-0.5">Rp 0</p></div>
           </div>
 
+          <div id="reportHealthContainer" className="space-y-4"></div>
+
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
             <div className="bg-slate-950/40 p-4 rounded-xl border border-slate-800">
               <h3 className="font-display font-bold text-[14px] text-white mb-3">Pengeluaran per Kategori</h3>
@@ -2918,17 +3008,17 @@ export default function Home({ initialView = 'landing' }) {
           </div>
 
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
-            <div>
+            <div className="overflow-x-auto">
               <h3 className="font-display font-bold text-[14px] text-white mb-2">Rincian Pengeluaran</h3>
-              <table className="w-full text-[12.5px]"><tbody id="repExpenseTable"></tbody></table>
+              <table className="w-full text-[12.5px] min-w-[260px]"><tbody id="repExpenseTable"></tbody></table>
             </div>
-            <div>
+            <div className="overflow-x-auto">
               <h3 className="font-display font-bold text-[14px] text-white mb-2">Rincian Pemasukan</h3>
-              <table className="w-full text-[12.5px]"><tbody id="repIncomeTable"></tbody></table>
+              <table className="w-full text-[12.5px] min-w-[260px]"><tbody id="repIncomeTable"></tbody></table>
             </div>
-            <div>
+            <div className="overflow-x-auto">
               <h3 className="font-display font-bold text-[14px] text-white mb-2">Rincian Alokasi Dana</h3>
-              <table className="w-full text-[12.5px]"><tbody id="repAllocationTable"></tbody></table>
+              <table className="w-full text-[12.5px] min-w-[260px]"><tbody id="repAllocationTable"></tbody></table>
             </div>
           </div>
 
