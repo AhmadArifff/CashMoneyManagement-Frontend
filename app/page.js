@@ -2143,29 +2143,27 @@ export default function Home({ initialView = 'dashboard' }) {
   }, [initialView]);
 
   return (
-    <div className="min-h-screen text-slate-100 bg-slate-950">
-      {isLandingVisible && (
-        <div className="fixed inset-0 z-[90] overflow-y-auto bg-slate-950">
-          <LandingPage
-            onOpenLogin={() => {
-              setIsLandingVisible(false);
-              setTimeout(() => {
-                if (window.__cashApp) {
-                  window.__cashApp.openModal('loginModal');
-                }
-              }, 50);
-            }}
-            onOpenRegister={() => {
-              setIsLandingVisible(false);
-              setTimeout(() => {
-                if (window.__cashApp) {
-                  window.__cashApp.openModal('registerModal');
-                }
-              }, 50);
-            }}
-          />
-        </div>
-      )}
+    <div className="min-h-screen text-slate-100 bg-slate-950" suppressHydrationWarning>
+      <div className={isLandingVisible ? "fixed inset-0 z-[90] overflow-y-auto bg-slate-950 block" : "hidden"}>
+        <LandingPage
+          onOpenLogin={() => {
+            setIsLandingVisible(false);
+            setTimeout(() => {
+              if (window.__cashApp) {
+                window.__cashApp.openModal('loginModal');
+              }
+            }, 50);
+          }}
+          onOpenRegister={() => {
+            setIsLandingVisible(false);
+            setTimeout(() => {
+              if (window.__cashApp) {
+                window.__cashApp.openModal('registerModal');
+              }
+            }, 50);
+          }}
+        />
+      </div>
 
       <div id="loadingOverlay" className="fixed inset-0 z-[100] bg-slate-950 flex flex-col items-center justify-center gap-3">
         <div className="w-10 h-10 border-[3px] border-teal-500/30 border-t-teal-400 rounded-full animate-spin"></div>
