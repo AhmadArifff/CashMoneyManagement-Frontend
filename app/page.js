@@ -106,6 +106,25 @@ export default function Home({ initialView = 'landing' }) {
       },
       fmtDateID: (s) => U.parseD(s).toLocaleDateString('id-ID', { day: '2-digit', month: 'short', year: 'numeric' }),
       fmtDateShort: (s) => U.parseD(s).toLocaleDateString('id-ID', { day: '2-digit', month: 'short' }),
+      fmtRangeLabel: (start, end) => {
+        if (!start || !end) return '';
+        const d1 = U.parseD(start);
+        const d2 = U.parseD(end);
+        const m1 = d1.toLocaleDateString('id-ID', { month: 'short' });
+        const m2 = d2.toLocaleDateString('id-ID', { month: 'short' });
+        const y1 = d1.getFullYear();
+        const y2 = d2.getFullYear();
+        const day1 = String(d1.getDate()).padStart(2, '0');
+        const day2 = String(d2.getDate()).padStart(2, '0');
+
+        if (y1 === y2) {
+          if (m1 === m2) {
+            return `${day1} – ${day2} ${m1} ${y1}`;
+          }
+          return `${day1} ${m1} – ${day2} ${m2} ${y1}`;
+        }
+        return `${day1} ${m1} ${y1} – ${day2} ${m2} ${y2}`;
+      },
       getMonday: (d) => {
         const r = new Date(d);
         const day = (r.getDay() + 6) % 7;
@@ -964,6 +983,30 @@ export default function Home({ initialView = 'landing' }) {
         document.getElementById('incomeSearch')?.addEventListener('input', () => this.renderIncomeList());
         document.getElementById('allocationSearch')?.addEventListener('input', () => this.renderAllocations());
 
+        document.querySelectorAll('#dashGroupTabs [data-dash-group]').forEach((btn) => btn.addEventListener('click', () => {
+          this.dashGroup = btn.dataset.dashGroup;
+          document.querySelectorAll('#dashGroupTabs [data-dash-group]').forEach((b) => {
+            const isAct = b === btn;
+            b.classList.toggle('active', isAct);
+            b.classList.toggle('bg-rose-500/20', isAct && b.dataset.dashGroup === 'expense');
+            b.classList.toggle('border-rose-500/40', isAct && b.dataset.dashGroup === 'expense');
+            b.classList.toggle('text-rose-300', isAct && b.dataset.dashGroup === 'expense');
+
+            b.classList.toggle('bg-emerald-500/20', isAct && b.dataset.dashGroup === 'income');
+            b.classList.toggle('border-emerald-500/40', isAct && b.dataset.dashGroup === 'income');
+            b.classList.toggle('text-emerald-300', isAct && b.dataset.dashGroup === 'income');
+
+            b.classList.toggle('bg-amber-500/20', isAct && b.dataset.dashGroup === 'allocation');
+            b.classList.toggle('border-amber-500/40', isAct && b.dataset.dashGroup === 'allocation');
+            b.classList.toggle('text-amber-300', isAct && b.dataset.dashGroup === 'allocation');
+
+            b.classList.toggle('text-slate-400', !isAct);
+          });
+          this.renderCascadeGroup(this.dashGroup);
+          this.renderTrendGroup(this.dashGroup);
+          this.renderDonutGroup(this.dashGroup);
+        }));
+
         document.getElementById('expensePerPage')?.addEventListener('change', () => this.renderExpenseList());
         document.getElementById('incomePerPage')?.addEventListener('change', () => this.renderIncomeList());
         document.getElementById('allocationPerPage')?.addEventListener('change', () => this.renderAllocations());
@@ -971,7 +1014,7 @@ export default function Home({ initialView = 'landing' }) {
       bindRangePicker() {
         const updateLabel = () => {
           const labelEl = document.getElementById('rangeLabel');
-          if (labelEl) labelEl.textContent = `${U.fmtDateShort(this.range.start)} – ${U.fmtDateShort(this.range.end)}`;
+          if (labelEl) labelEl.textContent = U.fmtRangeLabel(this.range.start, this.range.end);
         };
         updateLabel();
         const input = document.getElementById('rangeInput');
@@ -1633,7 +1676,7 @@ export default function Home({ initialView = 'landing' }) {
         if (changed) {
           this.fp.setDate([this.range.start, this.range.end], false);
           const labelEl = document.getElementById('rangeLabel');
-          if (labelEl) labelEl.textContent = `${U.fmtDateShort(this.range.start)} – ${U.fmtDateShort(this.range.end)}`;
+          if (labelEl) labelEl.textContent = U.fmtRangeLabel(this.range.start, this.range.end);
         }
         return changed;
       }
@@ -1680,117 +1723,14 @@ export default function Home({ initialView = 'landing' }) {
         const badge = document.getElementById('balanceBadge');
         if (card && badge) {
           if (balance < 0) {
-            card.className = 'rounded-3xl shadow-2xl border p-5 sm:p-6 bg-gradient-to-br from-rose-950/80 via-slate-900 to-slate-900 border-rose-500/50 flex items-center justify-between min-w-0 transition';
+            card.className = 'rounded-2xl shadow-xl border p-4.5 bg-gradient-to-br from-rose-950/80 via-slate-900 to-slate-900 border-rose-500/50 flex items-center justify-between transition';
             badge.textContent = 'DEFISIT';
-            badge.className = 'text-[10px] font-black bg-rose-500/20 text-rose-300 border border-rose-500/40 rounded-full px-2.5 py-0.5 shadow-sm';
+            badge.className = 'text-[10px] font-extrabold bg-rose-500/20 text-rose-300 border border-rose-500/40 rounded-full px-2 py-0.5';
           } else {
-            card.className = 'rounded-3xl shadow-2xl border p-5 sm:p-6 bg-gradient-to-br from-teal-950/80 via-slate-900 to-slate-900 border-teal-500/50 flex items-center justify-between min-w-0 transition';
+            card.className = 'rounded-2xl shadow-xl border p-4.5 bg-gradient-to-br from-teal-950/80 via-slate-900 to-slate-900 border-teal-500/50 flex items-center justify-between transition';
             badge.textContent = 'SURPLUS';
-            badge.className = 'text-[10px] font-black bg-teal-500/20 text-teal-300 border border-teal-500/40 rounded-full px-2.5 py-0.5 shadow-sm';
+            badge.className = 'text-[10px] font-extrabold bg-teal-500/20 text-teal-300 border border-teal-500/40 rounded-full px-2 py-0.5';
           }
-        }
-
-        // Render Group Breakdown - Incomes
-        const incGroupEl = document.getElementById('dashGroupIncomes');
-        const incBadgeEl = document.getElementById('dashIncTotalBadge');
-        if (incBadgeEl) incBadgeEl.textContent = U.fmtIDR(totalInc);
-        if (incGroupEl) {
-          const catList = [
-            { key: 'earned', label: 'Earned / Active Income', desc: 'Gaji, Bonus, Freelance', color: 'emerald' },
-            { key: 'passive', label: 'Passive Income', desc: 'Sewa, Royalty, Bisnis', color: 'teal' },
-            { key: 'portfolio', label: 'Portfolio / Investment', desc: 'Dividen, Saham, Crypto', color: 'cyan' }
-          ];
-          incGroupEl.innerHTML = catList.map((c) => {
-            const val = inc.filter((x) => x.category === c.key).reduce((s, x) => s + Number(x.amount), 0);
-            const pct = totalInc > 0 ? Math.round((val / totalInc) * 100) : 0;
-            return `<div class="p-3.5 rounded-2xl border border-slate-800 bg-slate-950/70 space-y-2">
-              <div class="flex items-center justify-between gap-2">
-                <div>
-                  <p class="text-xs font-bold text-white">${c.label}</p>
-                  <p class="text-[10.5px] text-slate-400">${c.desc}</p>
-                </div>
-                <div class="text-right">
-                  <p class="font-mono text-sm font-extrabold text-emerald-400">${U.fmtIDR(val)}</p>
-                  <p class="text-[10.5px] font-semibold text-slate-400">${pct}% dari total</p>
-                </div>
-              </div>
-              <div class="w-full h-1.5 bg-slate-900 rounded-full overflow-hidden">
-                <div class="h-full bg-gradient-to-r from-teal-500 to-emerald-400 rounded-full" style="width:${pct}%"></div>
-              </div>
-            </div>`;
-          }).join('');
-        }
-
-        // Render Group Breakdown - Expenses
-        const expGroupEl = document.getElementById('dashGroupExpenses');
-        const expBadgeEl = document.getElementById('dashExpTotalBadge');
-        if (expBadgeEl) expBadgeEl.textContent = U.fmtIDR(totalExp);
-        if (expGroupEl) {
-          const catList = [
-            { key: 'tetap', label: 'Pengeluaran Tetap', desc: 'Sewa, KPR, Listrik, Air, Kebersihan' },
-            { key: 'berkala', label: 'Pengeluaran Berkala', desc: 'Asuransi, Pajak, Servis Kendaraan' },
-            { key: 'dinamis', label: 'Dinamis / Variabel', desc: 'Makan, Belanja, Hiburan, Transport' }
-          ];
-          expGroupEl.innerHTML = catList.map((c) => {
-            const val = exp.filter((x) => x.category === c.key).reduce((s, x) => s + Number(x.amount), 0);
-            const pct = totalExp > 0 ? Math.round((val / totalExp) * 100) : 0;
-            return `<div class="p-3.5 rounded-2xl border border-slate-800 bg-slate-950/70 space-y-2">
-              <div class="flex items-center justify-between gap-2">
-                <div>
-                  <p class="text-xs font-bold text-white">${c.label}</p>
-                  <p class="text-[10.5px] text-slate-400">${c.desc}</p>
-                </div>
-                <div class="text-right">
-                  <p class="font-mono text-sm font-extrabold text-rose-400">${U.fmtIDR(val)}</p>
-                  <p class="text-[10.5px] font-semibold text-slate-400">${pct}% dari total</p>
-                </div>
-              </div>
-              <div class="w-full h-1.5 bg-slate-900 rounded-full overflow-hidden">
-                <div class="h-full bg-gradient-to-r from-rose-500 to-amber-500 rounded-full" style="width:${pct}%"></div>
-              </div>
-            </div>`;
-          }).join('');
-        }
-
-        // Render Group Breakdown - Allocations & Targets
-        const alcGroupEl = document.getElementById('dashGroupAllocations');
-        const alcBadgeEl = document.getElementById('dashAlcTotalBadge');
-        if (alcBadgeEl) alcBadgeEl.textContent = U.fmtIDR(totalAlc);
-        if (alcGroupEl) {
-          const catMap = {
-            darurat: { label: 'Dana Darurat (Emergency)', desc: 'Persiapan kondisi darurat' },
-            asuransi: { label: 'Asuransi (Insurance)', desc: 'Kesehatan & jiwa' },
-            investasi: { label: 'Investasi', desc: 'Pengembangan aset jangka panjang' },
-            cadangan: { label: 'Dana Cadangan / Likuiditas', desc: 'Dana simpanan tambahan' }
-          };
-          
-          alcGroupEl.innerHTML = Object.keys(catMap).map((catKey) => {
-            const catItems = alc.filter((x) => x.category === catKey);
-            const collected = catItems.reduce((s, x) => s + Number(x.amount), 0);
-            const target = catItems.reduce((s, x) => s + Number(x.targetAmount || 0), 0);
-            const pct = target > 0 ? Math.min(100, Math.round((collected / target) * 100)) : (collected > 0 ? 100 : 0);
-            const remaining = target > collected ? target - collected : 0;
-
-            return `<div class="p-3.5 rounded-2xl border border-slate-800 bg-slate-950/70 space-y-2">
-              <div class="flex items-center justify-between gap-2">
-                <div>
-                  <p class="text-xs font-bold text-white">${catMap[catKey].label}</p>
-                  <p class="text-[10.5px] text-slate-400">${catMap[catKey].desc}</p>
-                </div>
-                <div class="text-right">
-                  <p class="font-mono text-sm font-extrabold text-amber-400">${U.fmtIDR(collected)}</p>
-                  <p class="text-[10.5px] font-semibold text-slate-400">${target > 0 ? `Target: ${U.fmtIDR(target)}` : 'Tanpa target'}</p>
-                </div>
-              </div>
-              <div class="w-full h-2 bg-slate-900 rounded-full overflow-hidden p-0.5 border border-slate-800">
-                <div class="h-full bg-gradient-to-r from-amber-500 to-teal-400 rounded-full transition-all duration-500" style="width:${pct}%"></div>
-              </div>
-              <div class="flex items-center justify-between text-[10.5px] text-slate-400 pt-0.5">
-                <span>Pencapaian: <strong class="text-teal-300 font-mono">${pct}%</strong></span>
-                <span>${remaining > 0 ? `Sisa: <strong class="text-amber-300 font-mono">${U.fmtIDR(remaining)}</strong>` : (collected > 0 ? '<strong class="text-emerald-400 font-semibold">✓ Target Terpenuhi</strong>' : '-')}</span>
-              </div>
-            </div>`;
-          }).join('');
         }
         const unpaid = this.expenses.items.filter((x) => (x.category === 'tetap' || x.category === 'berkala') && x.status === 'unpaid' && !x.isEstimate).sort((a, b) => a.date.localeCompare(b.date));
         const bell = document.getElementById('alertDot');
@@ -1837,25 +1777,48 @@ export default function Home({ initialView = 'landing' }) {
             listEl.querySelectorAll('[data-mark-paid]').forEach((b) => b.addEventListener('click', () => this.markPaid(b.dataset.markPaid)));
           }
         }
-        this.renderCascade(exp);
-        this.renderTrendChart(exp, inc);
-        this.renderDonut('chartExpenseDonut', Aggregator.byCategory(exp), EXPENSE_CATS);
+        this.renderCascadeGroup(this.dashGroup || 'expense');
+        this.renderTrendGroup(this.dashGroup || 'expense');
+        this.renderDonutGroup(this.dashGroup || 'expense');
       }
-      renderCascade(exp) {
+      renderCascadeGroup(group = 'expense') {
         const wrap = document.getElementById('cascadeWrap');
         if (!wrap) return;
         const end = U.parseD(this.range.end);
         const days = [];
+        let items = [];
+        let barGradient = 'from-rose-600 to-rose-400';
+        let boxStyle = 'from-rose-950/90 to-slate-900 border-rose-500/40';
+        let monthColor = 'text-rose-400';
+        let labelGroup = 'Pengeluaran';
+
+        if (group === 'income') {
+          items = this.incomes.items;
+          barGradient = 'from-emerald-600 to-teal-400';
+          boxStyle = 'from-emerald-950/90 to-slate-900 border-emerald-500/40';
+          monthColor = 'text-emerald-400';
+          labelGroup = 'Pemasukan';
+        } else if (group === 'allocation') {
+          items = this.allocations.items;
+          barGradient = 'from-amber-600 to-amber-400';
+          boxStyle = 'from-amber-950/90 to-slate-900 border-amber-500/40';
+          monthColor = 'text-amber-400';
+          labelGroup = 'Dana Alokasi';
+        } else {
+          items = this.expenses.items.filter((x) => !x.isEstimate);
+        }
+
         for (let i = 6; i >= 0; i -= 1) {
           const d = U.addDays(end, -i);
           const key = U.iso(d);
-          const total = this.expenses.items.filter((x) => x.date === key && !x.isEstimate).reduce((s, x) => s + Number(x.amount), 0);
+          const total = items.filter((x) => x.date === key).reduce((s, x) => s + Number(x.amount || 0), 0);
           days.push({ key, total, label: d.toLocaleDateString('id-ID', { weekday: 'short' }) });
         }
         const weekTotal = days.reduce((s, d) => s + d.total, 0);
         const monthKey = U.monthKey(this.range.end);
-        const monthTotal = this.expenses.items.filter((x) => U.monthKey(x.date) === monthKey && !x.isEstimate).reduce((s, x) => s + Number(x.amount), 0);
+        const monthTotal = items.filter((x) => U.monthKey(x.date) === monthKey).reduce((s, x) => s + Number(x.amount || 0), 0);
         const maxDay = Math.max(...days.map((d) => d.total), 1);
+
         wrap.innerHTML = `
       <div class="flex items-end gap-3 md:gap-5 min-w-max px-1 overflow-x-auto py-2">
         <div class="flex items-end gap-2 md:gap-3">
@@ -1864,7 +1827,7 @@ export default function Home({ initialView = 'landing' }) {
               (d) => `
             <div class="flex flex-col items-center gap-1.5 w-10 md:w-12">
               <div class="w-full h-28 bg-slate-950/90 border border-slate-800 rounded-xl flex items-end p-1 overflow-hidden shadow-inner">
-                <div class="cascade-bar w-full bg-gradient-to-t from-teal-600 to-emerald-400 rounded-lg shadow-md shadow-teal-500/20" style="height:${U.clamp((d.total / maxDay) * 100, 4, 100)}%" title="${d.label}: ${U.fmtIDR(d.total)}"></div>
+                <div class="cascade-bar w-full bg-gradient-to-t ${barGradient} rounded-lg shadow-md" style="height:${U.clamp((d.total / maxDay) * 100, 4, 100)}%" title="${d.label}: ${U.fmtIDR(d.total)}"></div>
               </div>
               <span class="text-[11px] font-bold text-slate-400">${d.label}</span>
             </div>`
@@ -1873,8 +1836,8 @@ export default function Home({ initialView = 'landing' }) {
         </div>
         <svg width="20" height="16" viewBox="0 0 24 24" fill="none" stroke="#2DD4BF" strokeWidth="2.5" class="shrink-0 mb-7 text-teal-400"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
         <div class="flex flex-col items-center gap-1 shrink-0">
-          <div class="w-36 h-28 rounded-2xl bg-gradient-to-br from-teal-900/90 to-slate-900 border border-teal-500/40 flex flex-col items-center justify-center text-white p-3.5 shadow-xl backdrop-blur-md shrink-0">
-            <span class="text-[11px] font-semibold text-teal-300">Minggu Ini</span>
+          <div class="w-36 h-28 rounded-2xl bg-gradient-to-br ${boxStyle} border flex flex-col items-center justify-center text-white p-3.5 shadow-xl backdrop-blur-md shrink-0">
+            <span class="text-[11px] font-semibold text-slate-300">Minggu Ini (${labelGroup})</span>
             <span class="font-mono text-xs sm:text-sm font-extrabold text-white mt-1 text-center truncate w-full px-1" title="${U.fmtIDR(weekTotal)}">${U.fmtIDR(weekTotal)}</span>
           </div>
         </div>
@@ -1882,10 +1845,90 @@ export default function Home({ initialView = 'landing' }) {
         <div class="flex flex-col items-center gap-1 shrink-0">
           <div class="w-40 h-28 rounded-2xl bg-gradient-to-br from-slate-900 to-slate-950 border border-slate-800 flex flex-col items-center justify-center text-white p-3.5 shadow-xl backdrop-blur-md shrink-0">
             <span class="text-[11px] font-semibold text-slate-400">${U.monthLabel(monthKey)}</span>
-            <span class="font-mono text-xs sm:text-sm font-extrabold text-emerald-400 mt-1 text-center truncate w-full px-1" title="${U.fmtIDR(monthTotal)}">${U.fmtIDR(monthTotal)}</span>
+            <span class="font-mono text-xs sm:text-sm font-extrabold ${monthColor} mt-1 text-center truncate w-full px-1" title="${U.fmtIDR(monthTotal)}">${U.fmtIDR(monthTotal)}</span>
           </div>
         </div>
       </div>`;
+      }
+
+      renderTrendGroup(group = 'expense') {
+        const ctx = document.getElementById('chartTrend');
+        const titleEl = document.getElementById('chartTrendTitle');
+        if (!ctx) return;
+
+        if (group === 'income') {
+          if (titleEl) titleEl.textContent = 'Tren Pemasukan Mingguan';
+          const inc = this.currentIncomes();
+          const weeksInc = Aggregator.byWeek(inc);
+          const keys = Object.keys(weeksInc).sort();
+          const labels = keys.map((k) => 'Mgg ' + U.fmtDateShort(k));
+          const dataInc = keys.map((k) => weeksInc[k] || 0);
+
+          if (this.charts.trend) this.charts.trend.destroy();
+          this.charts.trend = new Chart(ctx, {
+            type: 'bar',
+            data: {
+              labels,
+              datasets: [{ label: 'Pemasukan', data: dataInc, backgroundColor: '#2DD4BF', borderRadius: 6, maxBarThickness: 32 }],
+            },
+            options: {
+              responsive: true,
+              maintainAspectRatio: false,
+              plugins: { legend: { position: 'bottom', labels: { boxWidth: 10, font: { size: 11 }, color: '#94A3B8' } } },
+              scales: {
+                y: { ticks: { callback: (v) => v / 1000 + 'k', font: { size: 10 }, color: '#94A3B8' }, grid: { color: '#1E293B' } },
+                x: { ticks: { font: { size: 10 }, color: '#94A3B8' }, grid: { display: false } },
+              },
+            },
+          });
+        } else if (group === 'allocation') {
+          if (titleEl) titleEl.textContent = 'Tren Dana Alokasi vs Target';
+          const alc = this.currentAllocations();
+          const weeksAlc = Aggregator.byWeek(alc);
+          const keys = Object.keys(weeksAlc).sort();
+          const labels = keys.map((k) => 'Mgg ' + U.fmtDateShort(k));
+          const dataAlc = keys.map((k) => weeksAlc[k] || 0);
+
+          if (this.charts.trend) this.charts.trend.destroy();
+          this.charts.trend = new Chart(ctx, {
+            type: 'bar',
+            data: {
+              labels,
+              datasets: [{ label: 'Dana Alokasi Terkumpul', data: dataAlc, backgroundColor: '#FBBF24', borderRadius: 6, maxBarThickness: 32 }],
+            },
+            options: {
+              responsive: true,
+              maintainAspectRatio: false,
+              plugins: { legend: { position: 'bottom', labels: { boxWidth: 10, font: { size: 11 }, color: '#94A3B8' } } },
+              scales: {
+                y: { ticks: { callback: (v) => v / 1000 + 'k', font: { size: 10 }, color: '#94A3B8' }, grid: { color: '#1E293B' } },
+                x: { ticks: { font: { size: 10 }, color: '#94A3B8' }, grid: { display: false } },
+              },
+            },
+          });
+        } else {
+          if (titleEl) titleEl.textContent = 'Tren Pengeluaran Mingguan';
+          const exp = this.currentExpenses();
+          const inc = this.currentIncomes();
+          this.renderTrendChart(exp, inc);
+        }
+      }
+
+      renderDonutGroup(group = 'expense') {
+        const titleEl = document.getElementById('chartDonutTitle');
+        if (group === 'income') {
+          if (titleEl) titleEl.textContent = 'Komposisi Pemasukan';
+          const inc = this.currentIncomes();
+          this.renderDonut('chartExpenseDonut', Aggregator.byCategory(inc), INCOME_CATS);
+        } else if (group === 'allocation') {
+          if (titleEl) titleEl.textContent = 'Komposisi Dana Alokasi';
+          const alc = this.currentAllocations();
+          this.renderDonut('chartExpenseDonut', Aggregator.byCategory(alc), ALLOCATION_CATS);
+        } else {
+          if (titleEl) titleEl.textContent = 'Komposisi Pengeluaran';
+          const exp = this.currentExpenses();
+          this.renderDonut('chartExpenseDonut', Aggregator.byCategory(exp), EXPENSE_CATS);
+        }
       }
       renderTrendChart(exp, inc) {
         const ctx = document.getElementById('chartTrend');
@@ -2546,121 +2589,75 @@ export default function Home({ initialView = 'landing' }) {
         </div>
 
         {/* summary cards */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-5">
-          <div className="bg-slate-900/95 backdrop-blur-xl rounded-3xl border border-slate-800/90 p-5 sm:p-6 shadow-2xl hover:border-emerald-500/50 transition flex items-center justify-between min-w-0">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-5">
+          <div className="bg-slate-900/90 backdrop-blur-md rounded-2xl border border-slate-800/90 p-5.5 md:p-6 shadow-xl hover:border-emerald-500/40 transition flex items-center justify-between min-h-[125px] md:min-h-[140px]">
             <div className="space-y-1.5 min-w-0 flex-1">
-              <p className="text-[11.5px] sm:text-xs font-bold uppercase tracking-wider text-slate-400">Total Pemasukan</p>
-              <p id="sumIncome" className="font-mono font-black text-2xl sm:text-3xl text-emerald-400 truncate tracking-tight">Rp 0</p>
+              <p className="text-xs md:text-sm font-semibold tracking-wide text-slate-400">Total Pemasukan</p>
+              <p id="sumIncome" className="font-mono font-extrabold text-2xl sm:text-3xl text-emerald-400 truncate">Rp 0</p>
             </div>
-            <div className="w-12 h-12 sm:w-14 sm:h-14 rounded-2xl bg-emerald-500/10 border border-emerald-500/30 flex items-center justify-center text-emerald-400 shrink-0 ml-3 shadow-lg shadow-emerald-500/10">
+            <div className="w-12 h-12 md:w-13 md:h-13 rounded-2xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center text-emerald-400 shrink-0 ml-3 shadow-md">
               <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M12 19V5M5 12l7-7 7 7"/></svg>
             </div>
           </div>
 
-          <div className="bg-slate-900/95 backdrop-blur-xl rounded-3xl border border-slate-800/90 p-5 sm:p-6 shadow-2xl hover:border-rose-500/50 transition flex items-center justify-between min-w-0">
+          <div className="bg-slate-900/90 backdrop-blur-md rounded-2xl border border-slate-800/90 p-5.5 md:p-6 shadow-xl hover:border-rose-500/40 transition flex items-center justify-between min-h-[125px] md:min-h-[140px]">
             <div className="space-y-1.5 min-w-0 flex-1">
-              <p className="text-[11.5px] sm:text-xs font-bold uppercase tracking-wider text-slate-400">Total Pengeluaran</p>
-              <p id="sumExpense" className="font-mono font-black text-2xl sm:text-3xl text-rose-400 truncate tracking-tight">Rp 0</p>
+              <p className="text-xs md:text-sm font-semibold tracking-wide text-slate-400">Total Pengeluaran</p>
+              <p id="sumExpense" className="font-mono font-extrabold text-2xl sm:text-3xl text-rose-400 truncate">Rp 0</p>
             </div>
-            <div className="w-12 h-12 sm:w-14 sm:h-14 rounded-2xl bg-rose-500/10 border border-rose-500/30 flex items-center justify-center text-rose-400 shrink-0 ml-3 shadow-lg shadow-rose-500/10">
+            <div className="w-12 h-12 md:w-13 md:h-13 rounded-2xl bg-rose-500/10 border border-rose-500/20 flex items-center justify-center text-rose-400 shrink-0 ml-3 shadow-md">
               <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M12 5v14M5 12l7 7 7-7"/></svg>
             </div>
           </div>
 
-          <div className="bg-slate-900/95 backdrop-blur-xl rounded-3xl border border-slate-800/90 p-5 sm:p-6 shadow-2xl hover:border-amber-500/50 transition flex items-center justify-between min-w-0">
+          <div className="bg-slate-900/90 backdrop-blur-md rounded-2xl border border-slate-800/90 p-5.5 md:p-6 shadow-xl hover:border-amber-500/40 transition flex items-center justify-between min-h-[125px] md:min-h-[140px]">
             <div className="space-y-1.5 min-w-0 flex-1">
-              <p className="text-[11.5px] sm:text-xs font-bold uppercase tracking-wider text-slate-400">Dana Alokasi</p>
-              <p id="sumAllocation" className="font-mono font-black text-2xl sm:text-3xl text-amber-400 truncate tracking-tight">Rp 0</p>
+              <p className="text-xs md:text-sm font-semibold tracking-wide text-slate-400">Dana Alokasi</p>
+              <p id="sumAllocation" className="font-mono font-extrabold text-2xl sm:text-3xl text-amber-400 truncate">Rp 0</p>
             </div>
-            <div className="w-12 h-12 sm:w-14 sm:h-14 rounded-2xl bg-amber-500/10 border border-amber-500/30 flex items-center justify-center text-amber-400 shrink-0 ml-3 shadow-lg shadow-amber-500/10">
+            <div className="w-12 h-12 md:w-13 md:h-13 rounded-2xl bg-amber-500/10 border border-amber-500/20 flex items-center justify-center text-amber-400 shrink-0 ml-3 shadow-md">
               <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/></svg>
             </div>
           </div>
 
-          <div id="sumBalanceCard" className="rounded-3xl shadow-2xl border p-5 sm:p-6 bg-gradient-to-br from-teal-950/80 via-slate-900 to-slate-900 border-teal-500/50 flex items-center justify-between min-w-0 transition">
+          <div id="sumBalanceCard" className="rounded-2xl shadow-xl border p-5.5 md:p-6 bg-gradient-to-br from-teal-950 via-slate-900 to-slate-900 border-teal-500/50 flex items-center justify-between min-h-[125px] md:min-h-[140px]">
             <div className="space-y-1.5 min-w-0 flex-1">
               <div className="flex flex-wrap items-center gap-2">
-                <p className="text-[11.5px] sm:text-xs font-bold uppercase tracking-wider text-teal-300">Saldo Bersih</p>
-                <span id="balanceBadge" className="text-[10px] font-black bg-teal-500/20 text-teal-300 border border-teal-500/40 rounded-full px-2.5 py-0.5 shadow-sm">SURPLUS</span>
+                <p className="text-xs md:text-sm text-teal-300 font-semibold">Saldo Bersih</p>
+                <span id="balanceBadge" className="text-[10px] font-extrabold bg-teal-500/20 text-teal-300 border border-teal-500/40 rounded-full px-2.5 py-0.5">SURPLUS</span>
               </div>
-              <p id="sumBalance" className="font-mono font-black text-2xl sm:text-3xl text-white truncate tracking-tight">Rp 0</p>
+              <p id="sumBalance" className="font-mono font-extrabold text-2xl sm:text-3xl text-white truncate mt-1">Rp 0</p>
             </div>
-            <div className="w-12 h-12 sm:w-14 sm:h-14 rounded-2xl bg-teal-500/20 border border-teal-500/30 flex items-center justify-center text-teal-300 shrink-0 ml-3 shadow-lg shadow-teal-500/10">
+            <div className="w-12 h-12 md:w-13 md:h-13 rounded-2xl bg-teal-500/20 border border-teal-500/30 flex items-center justify-center text-teal-300 shrink-0 ml-3 shadow-md">
               <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
             </div>
           </div>
         </div>
 
-        {/* category group breakdowns */}
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
-          <div className="bg-slate-900/90 backdrop-blur-xl rounded-3xl border border-slate-800/90 p-5 sm:p-6 shadow-xl space-y-4">
-            <div className="flex items-center justify-between border-b border-slate-800 pb-3">
-              <div className="flex items-center gap-2.5">
-                <div className="w-8.5 h-8.5 rounded-xl bg-emerald-500/20 border border-emerald-500/30 flex items-center justify-center text-emerald-400 shrink-0">
-                  <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M12 19V5M5 12l7-7 7 7"/></svg>
-                </div>
-                <div>
-                  <h3 className="font-display font-bold text-sm text-white">Pemasukan (per Kelompok)</h3>
-                  <p className="text-[11px] text-slate-400">Active, Passive & Portfolio</p>
-                </div>
-              </div>
-              <span id="dashIncTotalBadge" className="font-mono text-xs font-bold text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 px-2.5 py-1 rounded-xl">Rp 0</span>
-            </div>
-            <div id="dashGroupIncomes" className="space-y-3"></div>
-          </div>
-
-          <div className="bg-slate-900/90 backdrop-blur-xl rounded-3xl border border-slate-800/90 p-5 sm:p-6 shadow-xl space-y-4">
-            <div className="flex items-center justify-between border-b border-slate-800 pb-3">
-              <div className="flex items-center gap-2.5">
-                <div className="w-8.5 h-8.5 rounded-xl bg-rose-500/20 border border-rose-500/30 flex items-center justify-center text-rose-400 shrink-0">
-                  <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M12 5v14M5 12l7 7 7-7"/></svg>
-                </div>
-                <div>
-                  <h3 className="font-display font-bold text-sm text-white">Pengeluaran (per Kelompok)</h3>
-                  <p className="text-[11px] text-slate-400">Tetap, Berkala & Dinamis</p>
-                </div>
-              </div>
-              <span id="dashExpTotalBadge" className="font-mono text-xs font-bold text-rose-400 bg-rose-500/10 border border-rose-500/20 px-2.5 py-1 rounded-xl">Rp 0</span>
-            </div>
-            <div id="dashGroupExpenses" className="space-y-3"></div>
-          </div>
-
-          <div className="bg-slate-900/90 backdrop-blur-xl rounded-3xl border border-slate-800/90 p-5 sm:p-6 shadow-xl space-y-4">
-            <div className="flex items-center justify-between border-b border-slate-800 pb-3">
-              <div className="flex items-center gap-2.5">
-                <div className="w-8.5 h-8.5 rounded-xl bg-amber-500/20 border border-amber-500/30 flex items-center justify-center text-amber-400 shrink-0">
-                  <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/></svg>
-                </div>
-                <div>
-                  <h3 className="font-display font-bold text-sm text-white">Dana Alokasi & Target</h3>
-                  <p className="text-[11px] text-slate-400">Capaian terkumpul vs target</p>
-                </div>
-              </div>
-              <span id="dashAlcTotalBadge" className="font-mono text-xs font-bold text-amber-400 bg-amber-500/10 border border-amber-500/20 px-2.5 py-1 rounded-xl">Rp 0</span>
-            </div>
-            <div id="dashGroupAllocations" className="space-y-3"></div>
-          </div>
-        </div>
-
-        {/* cascade */}
-        <div className="bg-slate-900/80 backdrop-blur-md rounded-2xl border border-slate-800/90 p-4 md:p-5 shadow-lg space-y-3">
-          <div className="flex items-center justify-between">
+        {/* cascade with group selector */}
+        <div className="bg-slate-900/80 backdrop-blur-md rounded-2xl border border-slate-800/90 p-4 md:p-6 shadow-xl space-y-4">
+          <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-800/80 pb-4">
             <div>
-              <h2 className="font-display font-bold text-base text-white">Alur Arus Kas: Harian → Mingguan → Bulanan</h2>
-              <p className="text-xs text-slate-400 mt-0.5">Ringkasan agregasi otomatis transaksi pengeluaran dan pemasukan Anda.</p>
+              <h2 className="font-display font-bold text-base md:text-lg text-white">Alur Arus Kas: Harian → Mingguan → Bulanan</h2>
+              <p className="text-xs text-slate-400 mt-0.5">Pilih kelompok transaksi untuk melihat alur arus kas & analisis grafiknya.</p>
+            </div>
+            <div id="dashGroupTabs" className="flex items-center gap-1.5 bg-slate-950 p-1.5 rounded-xl border border-slate-800">
+              <button type="button" data-dash-group="expense" className="dash-group-tab active px-3.5 py-1.5 rounded-lg text-xs font-bold transition bg-rose-500/20 text-rose-300 border border-rose-500/40">🔴 Pengeluaran</button>
+              <button type="button" data-dash-group="income" className="dash-group-tab px-3.5 py-1.5 rounded-lg text-xs font-bold transition text-slate-400 hover:text-white">🟢 Pemasukan</button>
+              <button type="button" data-dash-group="allocation" className="dash-group-tab px-3.5 py-1.5 rounded-lg text-xs font-bold transition text-slate-400 hover:text-white">🔵 Dana Alokasi</button>
             </div>
           </div>
           <div id="cascadeWrap" className="overflow-x-auto pb-1"></div>
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 md:gap-5">
           <div className="bg-slate-900/80 backdrop-blur-md rounded-2xl border border-slate-800/90 p-5 lg:col-span-2 shadow-lg">
-            <h2 className="font-display font-bold text-base text-white mb-4">Tren Arus Kas Mingguan</h2>
-            <div className="h-64"><canvas id="chartTrend"></canvas></div>
+            <h2 id="chartTrendTitle" className="font-display font-bold text-base text-white mb-4">Tren Arus Kas Mingguan</h2>
+            <div className="h-64 md:h-72"><canvas id="chartTrend"></canvas></div>
           </div>
           <div className="bg-slate-900/80 backdrop-blur-md rounded-2xl border border-slate-800/90 p-5 shadow-lg">
-            <h2 className="font-display font-bold text-base text-white mb-4">Komposisi Pengeluaran</h2>
-            <div className="h-64"><canvas id="chartExpenseDonut"></canvas></div>
+            <h2 id="chartDonutTitle" className="font-display font-bold text-base text-white mb-4">Komposisi Pengeluaran</h2>
+            <div className="h-64 md:h-72"><canvas id="chartExpenseDonut"></canvas></div>
           </div>
         </div>
 
