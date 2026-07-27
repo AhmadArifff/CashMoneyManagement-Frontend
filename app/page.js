@@ -500,7 +500,8 @@ export default function Home({ initialView = 'dashboard' }) {
         this.setupRepoKeys();
         const today = new Date();
         const first = new Date(today.getFullYear(), today.getMonth(), 1);
-        this.range = { start: U.iso(first), end: U.iso(today) };
+        const last = new Date(today.getFullYear(), today.getMonth() + 1, 0);
+        this.range = { start: U.iso(first), end: U.iso(last) };
       }
       cacheKey(key) {
         return this.user ? `cashmoney:user-${this.user.id}:${key}` : `cashmoney:${key}`;
@@ -668,7 +669,6 @@ export default function Home({ initialView = 'dashboard' }) {
         }
       }
       async loadAllData() {
-        const params = { start: this.range.start, end: this.range.end };
         const fallbackCleanup = setTimeout(() => {
           this.hideLoading();
         }, 1500);
@@ -678,10 +678,16 @@ export default function Home({ initialView = 'dashboard' }) {
           if (el) el.style.opacity = '1';
 
           await Promise.all([
-            this.expenses.load(params),
-            this.incomes.load(params),
-            this.allocations.load(params)
+            this.expenses.load(),
+            this.incomes.load(),
+            this.allocations.load()
           ]);
+
+          // Automatically expand date range if items exist outside current default range
+          const allItems = [...this.expenses.items, ...this.incomes.items, ...this.allocations.items];
+          allItems.forEach((item) => {
+            if (item.date) this.ensureRangeIncludes(item.date);
+          });
         } catch (e) {
           if (e && e.code === 'unauthorized') {
             await this.store.set(this.tokenKey, '');
@@ -1670,14 +1676,13 @@ export default function Home({ initialView = 'dashboard' }) {
         const badge = document.getElementById('balanceBadge');
         if (card && badge) {
           if (balance < 0) {
-            card.classList.remove('bg-teal-700', 'border-teal-700');
-            card.classList.add('bg-rust-600', 'border-rust-600');
-            badge.textContent = 'MINUS';
-            badge.classList.remove('bg-white/20');
+            card.className = 'rounded-2xl shadow-xl border p-4.5 bg-gradient-to-br from-rose-950/80 via-slate-900 to-slate-900 border-rose-500/50 flex items-center justify-between transition';
+            badge.textContent = 'DEFISIT';
+            badge.className = 'text-[10px] font-extrabold bg-rose-500/20 text-rose-300 border border-rose-500/40 rounded-full px-2 py-0.5';
           } else {
-            card.classList.add('bg-teal-700', 'border-teal-700');
-            card.classList.remove('bg-rust-600', 'border-rust-600');
+            card.className = 'rounded-2xl shadow-xl border p-4.5 bg-gradient-to-br from-teal-950/80 via-slate-900 to-slate-900 border-teal-500/50 flex items-center justify-between transition';
             badge.textContent = 'SURPLUS';
+            badge.className = 'text-[10px] font-extrabold bg-teal-500/20 text-teal-300 border border-teal-500/40 rounded-full px-2 py-0.5';
           }
         }
         const unpaid = this.expenses.items.filter((x) => (x.category === 'tetap' || x.category === 'berkala') && x.status === 'unpaid' && !x.isEstimate).sort((a, b) => a.date.localeCompare(b.date));
