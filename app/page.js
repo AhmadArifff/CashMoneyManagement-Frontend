@@ -41,11 +41,18 @@ export default function Home({ initialView = 'dashboard' }) {
             console.warn('Service worker registration failed:', error);
           });
       });
-    } else if (typeof window !== 'undefined' && 'serviceWorker' in navigator) {
-      // Unregister service worker saat development agar Next.js dev server tidak 404 pada HMR/chunks
-      navigator.serviceWorker.getRegistrations().then((registrations) => {
-        registrations.forEach((r) => r.unregister());
-      });
+    } else if (typeof window !== 'undefined') {
+      // Unregister service worker dan bersihkan Cache Storage saat development agar Next.js dev HMR tidak 404
+      if ('serviceWorker' in navigator) {
+        navigator.serviceWorker.getRegistrations().then((registrations) => {
+          registrations.forEach((r) => r.unregister());
+        });
+      }
+      if ('caches' in window) {
+        caches.keys().then((names) => {
+          names.forEach((name) => caches.delete(name));
+        });
+      }
     }
 
     const U = {
