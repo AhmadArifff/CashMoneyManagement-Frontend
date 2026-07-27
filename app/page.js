@@ -1761,16 +1761,16 @@ export default function Home({ initialView = 'dashboard' }) {
         </div>
         <svg width="20" height="16" viewBox="0 0 24 24" fill="none" stroke="#2DD4BF" strokeWidth="2.5" class="shrink-0 mb-7 text-teal-400"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
         <div class="flex flex-col items-center gap-1 shrink-0">
-          <div class="w-28 h-28 rounded-2xl bg-gradient-to-br from-teal-900/90 to-slate-900 border border-teal-500/40 flex flex-col items-center justify-center text-white p-3 shadow-xl backdrop-blur-md">
-            <span class="text-[11px] font-medium text-teal-300">Minggu Ini</span>
-            <span class="font-mono text-sm font-extrabold text-white mt-1">${U.fmtIDR(weekTotal)}</span>
+          <div class="w-36 h-28 rounded-2xl bg-gradient-to-br from-teal-900/90 to-slate-900 border border-teal-500/40 flex flex-col items-center justify-center text-white p-3.5 shadow-xl backdrop-blur-md shrink-0">
+            <span class="text-[11px] font-semibold text-teal-300">Minggu Ini</span>
+            <span class="font-mono text-xs sm:text-sm font-extrabold text-white mt-1 text-center truncate w-full px-1" title="${U.fmtIDR(weekTotal)}">${U.fmtIDR(weekTotal)}</span>
           </div>
         </div>
         <svg width="20" height="16" viewBox="0 0 24 24" fill="none" stroke="#2DD4BF" strokeWidth="2.5" class="shrink-0 mb-7 text-teal-400"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
         <div class="flex flex-col items-center gap-1 shrink-0">
-          <div class="w-32 h-28 rounded-2xl bg-gradient-to-br from-slate-900 to-slate-950 border border-slate-800 flex flex-col items-center justify-center text-white p-3 shadow-xl backdrop-blur-md">
-            <span class="text-[11px] font-medium text-slate-400">${U.monthLabel(monthKey)}</span>
-            <span class="font-mono text-sm font-extrabold text-emerald-400 mt-1">${U.fmtIDR(monthTotal)}</span>
+          <div class="w-40 h-28 rounded-2xl bg-gradient-to-br from-slate-900 to-slate-950 border border-slate-800 flex flex-col items-center justify-center text-white p-3.5 shadow-xl backdrop-blur-md shrink-0">
+            <span class="text-[11px] font-semibold text-slate-400">${U.monthLabel(monthKey)}</span>
+            <span class="font-mono text-xs sm:text-sm font-extrabold text-emerald-400 mt-1 text-center truncate w-full px-1" title="${U.fmtIDR(monthTotal)}">${U.fmtIDR(monthTotal)}</span>
           </div>
         </div>
       </div>`;
