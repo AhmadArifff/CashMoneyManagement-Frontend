@@ -1678,32 +1678,32 @@ export default function Home({ initialView = 'dashboard' }) {
         const monthTotal = this.expenses.items.filter((x) => U.monthKey(x.date) === monthKey && !x.isEstimate).reduce((s, x) => s + Number(x.amount), 0);
         const maxDay = Math.max(...days.map((d) => d.total), 1);
         wrap.innerHTML = `
-      <div class="flex items-end gap-4 min-w-max px-1">
-        <div class="flex items-end gap-1.5">
+      <div class="flex items-end gap-3 md:gap-5 min-w-max px-1 overflow-x-auto py-2">
+        <div class="flex items-end gap-2 md:gap-3">
           ${days
             .map(
               (d) => `
-            <div class="flex flex-col items-center gap-1 w-11">
-              <div class="w-full h-24 bg-teal-50 rounded-lg flex items-end overflow-hidden">
-                <div class="cascade-bar w-full bg-teal-500 rounded-t" style="height:${U.clamp((d.total / maxDay) * 100, 3, 100)}%"></div>
+            <div class="flex flex-col items-center gap-1.5 w-10 md:w-12">
+              <div class="w-full h-28 bg-slate-950/90 border border-slate-800 rounded-xl flex items-end p-1 overflow-hidden shadow-inner">
+                <div class="cascade-bar w-full bg-gradient-to-t from-teal-600 to-emerald-400 rounded-lg shadow-md shadow-teal-500/20" style="height:${U.clamp((d.total / maxDay) * 100, 4, 100)}%" title="${d.label}: ${U.fmtIDR(d.total)}"></div>
               </div>
-              <span class="text-[10px] text-inksoft">${d.label}</span>
+              <span class="text-[11px] font-bold text-slate-400">${d.label}</span>
             </div>`
             )
             .join('')}
         </div>
-        <svg width="22" height="16" viewBox="0 0 24 24" fill="none" stroke="#7EC2AC" strokeWidth="2.4" class="shrink-0 mb-6"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
+        <svg width="20" height="16" viewBox="0 0 24 24" fill="none" stroke="#2DD4BF" strokeWidth="2.5" class="shrink-0 mb-7 text-teal-400"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
         <div class="flex flex-col items-center gap-1 shrink-0">
-          <div class="w-24 h-24 rounded-xl bg-teal-700 flex flex-col items-center justify-center text-white">
-            <span class="text-[10px] opacity-80">Minggu ini</span>
-            <span class="font-mono text-[13px] font-bold">${U.fmtIDR(weekTotal)}</span>
+          <div class="w-28 h-28 rounded-2xl bg-gradient-to-br from-teal-900/90 to-slate-900 border border-teal-500/40 flex flex-col items-center justify-center text-white p-3 shadow-xl backdrop-blur-md">
+            <span class="text-[11px] font-medium text-teal-300">Minggu Ini</span>
+            <span class="font-mono text-sm font-extrabold text-white mt-1">${U.fmtIDR(weekTotal)}</span>
           </div>
         </div>
-        <svg width="22" height="16" viewBox="0 0 24 24" fill="none" stroke="#7EC2AC" strokeWidth="2.4" class="shrink-0 mb-6"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
+        <svg width="20" height="16" viewBox="0 0 24 24" fill="none" stroke="#2DD4BF" strokeWidth="2.5" class="shrink-0 mb-7 text-teal-400"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
         <div class="flex flex-col items-center gap-1 shrink-0">
-          <div class="w-28 h-24 rounded-xl bg-ink flex flex-col items-center justify-center text-white">
-            <span class="text-[10px] opacity-70">${U.monthLabel(monthKey)}</span>
-            <span class="font-mono text-[13px] font-bold">${U.fmtIDR(monthTotal)}</span>
+          <div class="w-32 h-28 rounded-2xl bg-gradient-to-br from-slate-900 to-slate-950 border border-slate-800 flex flex-col items-center justify-center text-white p-3 shadow-xl backdrop-blur-md">
+            <span class="text-[11px] font-medium text-slate-400">${U.monthLabel(monthKey)}</span>
+            <span class="font-mono text-sm font-extrabold text-emerald-400 mt-1">${U.fmtIDR(monthTotal)}</span>
           </div>
         </div>
       </div>`;
@@ -1723,17 +1723,17 @@ export default function Home({ initialView = 'dashboard' }) {
           data: {
             labels,
             datasets: [
-              { label: 'Pemasukan', data: dataInc, backgroundColor: '#4FA88E', borderRadius: 6, maxBarThickness: 28 },
-              { label: 'Pengeluaran', data: dataExp, backgroundColor: '#CE5A32', borderRadius: 6, maxBarThickness: 28 },
+              { label: 'Pemasukan', data: dataInc, backgroundColor: '#2DD4BF', borderRadius: 6, maxBarThickness: 28 },
+              { label: 'Pengeluaran', data: dataExp, backgroundColor: '#FB7185', borderRadius: 6, maxBarThickness: 28 },
             ],
           },
           options: {
             responsive: true,
             maintainAspectRatio: false,
-            plugins: { legend: { position: 'bottom', labels: { boxWidth: 10, font: { size: 11 } } } },
+            plugins: { legend: { position: 'bottom', labels: { boxWidth: 10, font: { size: 11 }, color: '#94A3B8' } } },
             scales: {
-              y: { ticks: { callback: (v) => v / 1000 + 'k', font: { size: 10 } }, grid: { color: '#EEF2EF' } },
-              x: { ticks: { font: { size: 10 } }, grid: { display: false } },
+              y: { ticks: { callback: (v) => v / 1000 + 'k', font: { size: 10 }, color: '#94A3B8' }, grid: { color: '#1E293B' } },
+              x: { ticks: { font: { size: 10 }, color: '#94A3B8' }, grid: { display: false } },
             },
           },
         });
@@ -1748,12 +1748,11 @@ export default function Home({ initialView = 'dashboard' }) {
         if (this.charts[canvasId]) this.charts[canvasId].destroy();
         this.charts[canvasId] = new Chart(ctx, {
           type: 'doughnut',
-          data: { labels, datasets: [{ data, backgroundColor: colors, borderWidth: 2, borderColor: '#fff' }] },
+          data: { labels, datasets: [{ data, backgroundColor: colors, borderWidth: 0 }] },
           options: {
             responsive: true,
             maintainAspectRatio: false,
-            cutout: '62%',
-            plugins: { legend: { position: 'bottom', labels: { boxWidth: 10, font: { size: 10.5 }, padding: 10 } } },
+            plugins: { legend: { position: 'bottom', labels: { boxWidth: 10, font: { size: 11 }, color: '#94A3B8' } } },
           },
         });
       }
@@ -1782,6 +1781,7 @@ export default function Home({ initialView = 'dashboard' }) {
         document.getElementById('totDinamis').textContent = U.fmtIDR(actual.filter((x) => x.category === 'dinamis').reduce((s, x) => s + Number(x.amount), 0));
         const list = document.getElementById('expenseList');
         if (!list) return;
+        list.className = items.length ? "grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3.5" : "block";
         list.innerHTML = items.length
           ? items
               .map(
@@ -1826,6 +1826,7 @@ export default function Home({ initialView = 'dashboard' }) {
 
         const list = document.getElementById('incomeList');
         if (!list) return;
+        list.className = items.length ? "grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3.5" : "block";
         list.innerHTML = items.length
           ? items
               .map(
@@ -1881,6 +1882,7 @@ export default function Home({ initialView = 'dashboard' }) {
             sorted = sorted.slice(0, limit);
           }
         }
+        list.className = sorted.length ? "grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3.5" : "block";
         list.innerHTML = sorted.length
           ? sorted
               .map(
@@ -2297,22 +2299,48 @@ export default function Home({ initialView = 'dashboard' }) {
         </div>
 
         {/* summary cards */}
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-          <div className="bg-slate-900/80 backdrop-blur-md rounded-2xl border border-slate-800/90 p-4.5 shadow-lg hover:border-teal-500/40 transition space-y-1">
-            <p className="text-[12px] text-slate-400 font-medium">Total Pemasukan</p>
-            <p id="sumIncome" className="font-mono font-extrabold text-xl text-emerald-400">Rp 0</p>
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          <div className="bg-slate-900/90 backdrop-blur-md rounded-2xl border border-slate-800/90 p-4.5 shadow-xl hover:border-emerald-500/40 transition flex items-center justify-between">
+            <div className="space-y-1 min-w-0">
+              <p className="text-xs font-semibold text-slate-400">Total Pemasukan</p>
+              <p id="sumIncome" className="font-mono font-extrabold text-xl text-emerald-400 truncate">Rp 0</p>
+            </div>
+            <div className="w-10 h-10 rounded-xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center text-emerald-400 shrink-0">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M12 19V5M5 12l7-7 7 7"/></svg>
+            </div>
           </div>
-          <div className="bg-slate-900/80 backdrop-blur-md rounded-2xl border border-slate-800/90 p-4.5 shadow-lg hover:border-rose-500/40 transition space-y-1">
-            <p className="text-[12px] text-slate-400 font-medium">Total Pengeluaran</p>
-            <p id="sumExpense" className="font-mono font-extrabold text-xl text-rose-400">Rp 0</p>
+
+          <div className="bg-slate-900/90 backdrop-blur-md rounded-2xl border border-slate-800/90 p-4.5 shadow-xl hover:border-rose-500/40 transition flex items-center justify-between">
+            <div className="space-y-1 min-w-0">
+              <p className="text-xs font-semibold text-slate-400">Total Pengeluaran</p>
+              <p id="sumExpense" className="font-mono font-extrabold text-xl text-rose-400 truncate">Rp 0</p>
+            </div>
+            <div className="w-10 h-10 rounded-xl bg-rose-500/10 border border-rose-500/20 flex items-center justify-center text-rose-400 shrink-0">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M12 5v14M5 12l7 7 7-7"/></svg>
+            </div>
           </div>
-          <div className="bg-slate-900/80 backdrop-blur-md rounded-2xl border border-slate-800/90 p-4.5 shadow-lg hover:border-amber-500/40 transition space-y-1">
-            <p className="text-[12px] text-slate-400 font-medium">Dana Alokasi</p>
-            <p id="sumAllocation" className="font-mono font-extrabold text-xl text-amber-400">Rp 0</p>
+
+          <div className="bg-slate-900/90 backdrop-blur-md rounded-2xl border border-slate-800/90 p-4.5 shadow-xl hover:border-amber-500/40 transition flex items-center justify-between">
+            <div className="space-y-1 min-w-0">
+              <p className="text-xs font-semibold text-slate-400">Dana Alokasi</p>
+              <p id="sumAllocation" className="font-mono font-extrabold text-xl text-amber-400 truncate">Rp 0</p>
+            </div>
+            <div className="w-10 h-10 rounded-xl bg-amber-500/10 border border-amber-500/20 flex items-center justify-center text-amber-400 shrink-0">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/></svg>
+            </div>
           </div>
-          <div id="sumBalanceCard" className="rounded-2xl shadow-xl border p-4.5 bg-gradient-to-br from-teal-950 via-slate-900 to-slate-900 border-teal-500/50">
-            <p className="text-[12px] text-teal-300 font-medium flex items-center gap-1.5">Saldo Bersih <span id="balanceBadge" className="text-[10px] font-bold bg-teal-500/20 text-teal-300 border border-teal-500/40 rounded-full px-2 py-0.5">SURPLUS</span></p>
-            <p id="sumBalance" className="font-mono font-extrabold text-2xl text-white mt-1">Rp 0</p>
+
+          <div id="sumBalanceCard" className="rounded-2xl shadow-xl border p-4.5 bg-gradient-to-br from-teal-950 via-slate-900 to-slate-900 border-teal-500/50 flex items-center justify-between">
+            <div className="space-y-1 min-w-0">
+              <p className="text-xs text-teal-300 font-semibold flex items-center gap-1.5">
+                Saldo Bersih
+                <span id="balanceBadge" className="text-[10px] font-extrabold bg-teal-500/20 text-teal-300 border border-teal-500/40 rounded-full px-2 py-0.5">SURPLUS</span>
+              </p>
+              <p id="sumBalance" className="font-mono font-extrabold text-xl text-white truncate mt-1">Rp 0</p>
+            </div>
+            <div className="w-10 h-10 rounded-xl bg-teal-500/20 border border-teal-500/30 flex items-center justify-center text-teal-300 shrink-0">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
+            </div>
           </div>
         </div>
 
@@ -2381,7 +2409,7 @@ export default function Home({ initialView = 'dashboard' }) {
           <button data-cat="dinamis" className="tab-pill px-3.5 h-9 rounded-full text-[13px] font-medium border border-slate-700/80 bg-slate-900 text-slate-300">Dinamis / Variabel</button>
         </div>
 
-        <div className="grid grid-cols-3 gap-3">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
           <div className="bg-slate-900/80 backdrop-blur-md rounded-xl border border-slate-800/90 p-3.5"><p className="text-[11px] text-slate-400">Tetap</p><p id="totTetap" className="font-mono font-bold text-teal-400 text-base mt-0.5">Rp 0</p></div>
           <div className="bg-slate-900/80 backdrop-blur-md rounded-xl border border-slate-800/90 p-3.5"><p className="text-[11px] text-slate-400">Berkala</p><p id="totBerkala" className="font-mono font-bold text-amber-400 text-base mt-0.5">Rp 0</p></div>
           <div className="bg-slate-900/80 backdrop-blur-md rounded-xl border border-slate-800/90 p-3.5"><p className="text-[11px] text-slate-400">Dinamis</p><p id="totDinamis" className="font-mono font-bold text-rose-400 text-base mt-0.5">Rp 0</p></div>
