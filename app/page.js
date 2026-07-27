@@ -942,11 +942,14 @@ export default function Home({ initialView = 'dashboard' }) {
         };
         updateLabel();
         const input = document.getElementById('rangeInput');
+        const rangeBtn = document.getElementById('rangeBtn');
         if (!input) return;
         this.fp = flatpickr(input, {
           mode: 'range',
           dateFormat: 'Y-m-d',
           defaultDate: [this.range.start, this.range.end],
+          positionElement: rangeBtn || undefined,
+          appendTo: rangeBtn?.parentElement || undefined,
           locale: { rangeSeparator: ' s/d ' },
           onClose: (selectedDates) => {
             if (selectedDates.length === 2) {
@@ -957,7 +960,7 @@ export default function Home({ initialView = 'dashboard' }) {
             }
           },
         });
-        document.getElementById('rangeBtn')?.addEventListener('click', () => this.fp.open());
+        rangeBtn?.addEventListener('click', () => this.fp.open());
       }
       bindModals() {
         // auth bindings
@@ -1233,20 +1236,55 @@ export default function Home({ initialView = 'dashboard' }) {
         el.innerHTML = `<a href="${url}" target="_blank" rel="noopener noreferrer" class="font-semibold text-teal-700 underline">Lihat bukti: ${filename}</a>`;
       }
       openAttachmentPreview(url) {
-        const modal = document.getElementById('attachmentPreviewModal');
-        const content = document.getElementById('attachmentPreviewContent');
-        const title = document.getElementById('attachmentPreviewTitle');
-        if (!modal || !content || !title || !url) return;
-        title.textContent = url.split('/').pop().split('?')[0] || 'Bukti';
-        const ext = url.split('.').pop().split('?')[0].toLowerCase();
+        const modal = document.getElementById('attachmentModal');
+        const img = document.getElementById('attachPreviewImg');
+        const pdf = document.getElementById('attachPreviewPdf');
+        const openTab = document.getElementById('attachOpenTab');
+        if (!modal || !url) return;
+
+        let fullUrl = url;
+        if (!fullUrl.startsWith('http://') && !fullUrl.startsWith('https://')) {
+          const cleanPath = fullUrl.replace(/^\/+/, '');
+          fullUrl = cleanPath.startsWith('storage/') ? `${API_BASE}/${cleanPath}` : `${API_BASE}/storage/${cleanPath}`;
+        }
+
+        if (openTab) {
+          openTab.href = fullUrl;
+        }
+
+        const ext = fullUrl.split('.').pop().split('?')[0].toLowerCase();
         if (['png', 'jpg', 'jpeg', 'webp', 'gif'].includes(ext)) {
-          content.innerHTML = `<img src="${url}" alt="Bukti" class="w-full h-auto max-h-[70vh] object-contain rounded-xl" />`;
+          if (img) {
+            img.src = fullUrl;
+            img.style.display = 'block';
+          }
+          if (pdf) {
+            pdf.style.display = 'none';
+            pdf.src = '';
+          }
         } else if (ext === 'pdf') {
-          content.innerHTML = `<iframe src="${url}" class="w-full h-[72vh] border rounded-xl"></iframe>`;
+          if (pdf) {
+            pdf.src = fullUrl;
+            pdf.style.display = 'block';
+          }
+          if (img) {
+            img.style.display = 'none';
+            img.src = '';
+          }
         } else {
-          content.innerHTML = `<div class="p-4 text-sm text-inksoft">Pratinjau tidak tersedia. <a href="${url}" target="_blank" rel="noopener noreferrer" class="text-teal-700 underline">Buka file di tab baru</a>.</div>`;
+          window.open(fullUrl, '_blank');
+          return;
         }
         modal.classList.add('active');
+      }
+
+      closeAttachmentPreview() {
+        const modal = document.getElementById('attachmentModal');
+        if (modal) modal.classList.remove('active');
+        const img = document.getElementById('attachPreviewImg');
+        const pdf = document.getElementById('attachPreviewPdf');
+        if (img) { img.src = ''; img.style.display = 'none'; }
+        if (pdf) { pdf.src = ''; pdf.style.display = 'none'; }
       }
       confirm(cb) {
         this.confirmCb = cb;
@@ -1781,28 +1819,52 @@ export default function Home({ initialView = 'dashboard' }) {
         document.getElementById('totDinamis').textContent = U.fmtIDR(actual.filter((x) => x.category === 'dinamis').reduce((s, x) => s + Number(x.amount), 0));
         const list = document.getElementById('expenseList');
         if (!list) return;
-        list.className = items.length ? "grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3.5" : "block";
-        list.innerHTML = items.length
-          ? items
-              .map(
-                (x) => `
-      <div data-edit="${x.id}" class="flex flex-col gap-3 p-4 rounded-2xl border border-slate-800/90 bg-slate-900/90 hover:border-teal-500/50 cursor-pointer transition text-slate-100 backdrop-blur-md shadow-lg">
-        <div class="flex items-center gap-3 min-w-0">
-          <span class="w-2.5 h-2.5 rounded-full shrink-0" style="background:${EXPENSE_CATS[x.category].color}"></span>
-          <div class="min-w-0 flex-1">
-            <p class="text-sm font-bold text-white truncate">${x.subcategory}${x.isEstimate ? '<span class="text-[10px] font-bold text-amber-300 bg-amber-500/20 border border-amber-500/30 rounded-full px-2 py-0.5 ml-1.5">Estimasi</span>' : ''}</p>
-            <p class="text-[12px] text-slate-400 mt-0.5">${U.fmtDateID(x.date)} · ${EXPENSE_CATS[x.category].label}${x.category !== 'dinamis' ? ' · ' + (x.status === 'paid' ? '<span class="text-emerald-400 font-semibold">Lunas</span>' : '<span class="text-rose-400 font-semibold">Belum bayar</span>') : ''}</p>
-          </div>
-          ${x.attachmentUrl ? `<button type="button" onclick="event.stopPropagation(); window.__cashApp.openAttachmentPreview('${x.attachmentUrl}')" class="shrink-0 w-8 h-8 rounded-xl bg-teal-500/20 border border-teal-500/30 flex items-center justify-center hover:bg-teal-500/30 transition text-teal-300" title="Lihat bukti"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/></svg></button>` : ''}
-        </div>
-        <div class="flex items-center justify-between gap-3 pt-1 border-t border-slate-800/60">
-          <span class="font-mono text-base font-bold text-rose-400">- ${U.fmtIDR(x.amount)}</span>
-          ${x.attachmentUrl ? `<span class="text-[11.5px] text-teal-300 font-semibold flex items-center gap-1">📎 Ada bukti</span>` : ''}
-        </div>
-      </div>`
-              )
-              .join('')
-          : `<p class="text-sm text-slate-400 py-8 text-center">Belum ada data pengeluaran pada periode ini.</p>`;
+        list.className = "block overflow-x-auto rounded-2xl border border-slate-800 bg-slate-900/90 backdrop-blur-md shadow-2xl";
+
+        if (!items.length) {
+          list.innerHTML = `<p class="text-sm text-slate-400 py-10 text-center">Belum ada data pengeluaran pada periode ini.</p>`;
+          return;
+        }
+
+        list.innerHTML = `
+          <table class="w-full text-left border-collapse min-w-[640px]">
+            <thead class="bg-slate-950/90 text-[11px] font-bold text-slate-400 uppercase tracking-wider border-b border-slate-800">
+              <tr>
+                <th class="py-3.5 px-4">Tanggal</th>
+                <th class="py-3.5 px-4">Subkategori & Kategori</th>
+                <th class="py-3.5 px-4">Status</th>
+                <th class="py-3.5 px-4 text-right">Jumlah (Nominal)</th>
+                <th class="py-3.5 px-4 text-center">Bukti</th>
+                <th class="py-3.5 px-4 text-center">Aksi</th>
+              </tr>
+            </thead>
+            <tbody class="divide-y divide-slate-800/60 text-xs font-medium text-slate-200">
+              ${items.map((x) => `
+                <tr class="hover:bg-slate-800/50 transition">
+                  <td class="py-3 px-4 text-slate-300 font-mono text-[12px] whitespace-nowrap">${U.fmtDateID(x.date)}</td>
+                  <td class="py-3 px-4">
+                    <div class="flex items-center gap-2">
+                      <span class="w-2.5 h-2.5 rounded-full shrink-0" style="background:${EXPENSE_CATS[x.category]?.color || '#94A3B8'}"></span>
+                      <span class="font-bold text-white">${x.subcategory}</span>
+                      ${x.isEstimate ? '<span class="text-[10px] font-bold text-amber-300 bg-amber-500/20 border border-amber-500/30 rounded-full px-2 py-0.5">Estimasi</span>' : ''}
+                      <span class="text-[11px] text-slate-400">(${EXPENSE_CATS[x.category]?.label || x.category})</span>
+                    </div>
+                  </td>
+                  <td class="py-3 px-4 whitespace-nowrap">
+                    ${x.category !== 'dinamis' ? (x.status === 'paid' ? '<span class="text-[11px] font-bold text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 px-2.5 py-0.5 rounded-full">✓ Lunas</span>' : '<span class="text-[11px] font-bold text-rose-400 bg-rose-500/10 border border-rose-500/20 px-2.5 py-0.5 rounded-full">Belum Bayar</span>') : '<span class="text-slate-500">-</span>'}
+                  </td>
+                  <td class="py-3 px-4 text-right font-mono font-bold text-rose-400 text-sm whitespace-nowrap">- ${U.fmtIDR(x.amount)}</td>
+                  <td class="py-3 px-4 text-center whitespace-nowrap">
+                    ${x.attachmentUrl ? `<button type="button" onclick="event.stopPropagation(); window.__cashApp.openAttachmentPreview('${x.attachmentUrl}')" class="inline-flex items-center gap-1.5 text-[11px] font-bold text-teal-300 bg-teal-500/20 border border-teal-500/30 rounded-lg px-2.5 py-1 hover:bg-teal-500/30 transition" title="Lihat bukti"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/></svg>Bukti</button>` : '<span class="text-slate-500 text-[11px]">-</span>'}
+                  </td>
+                  <td class="py-3 px-4 text-center whitespace-nowrap">
+                    <button type="button" data-edit="${x.id}" class="text-[11px] font-semibold text-slate-300 bg-slate-800 border border-slate-700 hover:border-teal-500/50 hover:text-white rounded-lg px-2.5 py-1 transition">Edit / Detail</button>
+                  </td>
+                </tr>
+              `).join('')}
+            </tbody>
+          </table>
+        `;
         list.querySelectorAll('[data-edit]').forEach((el) => el.addEventListener('click', () => this.openEntryForm('expense', el.dataset.edit)));
       }
       renderIncomeList() {
@@ -1826,28 +1888,49 @@ export default function Home({ initialView = 'dashboard' }) {
 
         const list = document.getElementById('incomeList');
         if (!list) return;
-        list.className = items.length ? "grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3.5" : "block";
-        list.innerHTML = items.length
-          ? items
-              .map(
-                (x) => `
-      <div data-edit="${x.id}" class="flex flex-col gap-3 p-4 rounded-2xl border border-slate-800/90 bg-slate-900/90 hover:border-teal-500/50 cursor-pointer transition text-slate-100 backdrop-blur-md shadow-lg">
-        <div class="flex items-center gap-3 min-w-0">
-          <span class="w-2.5 h-2.5 rounded-full shrink-0" style="background:${INCOME_CATS[x.category].color}"></span>
-          <div class="min-w-0 flex-1">
-            <p class="text-sm font-bold text-white truncate">${x.subcategory}</p>
-            <p class="text-[12px] text-slate-400 mt-0.5">${U.fmtDateID(x.date)} · ${INCOME_CATS[x.category].label}</p>
-          </div>
-          ${x.attachmentUrl ? `<button type="button" onclick="event.stopPropagation(); window.__cashApp.openAttachmentPreview('${x.attachmentUrl}')" class="shrink-0 w-8 h-8 rounded-xl bg-teal-500/20 border border-teal-500/30 flex items-center justify-center hover:bg-teal-500/30 transition text-teal-300" title="Lihat bukti"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/></svg></button>` : ''}
-        </div>
-        <div class="flex items-center justify-between gap-3 pt-1 border-t border-slate-800/60">
-          <span class="font-mono text-base font-bold text-emerald-400">+ ${U.fmtIDR(x.amount)}</span>
-          ${x.attachmentUrl ? `<span class="text-[11.5px] text-teal-300 font-semibold flex items-center gap-1">📎 Ada bukti</span>` : ''}
-        </div>
-      </div>`
-              )
-              .join('')
-          : `<p class="text-sm text-slate-400 py-8 text-center">Belum ada data pemasukan pada periode ini.</p>`;
+        list.className = "block overflow-x-auto rounded-2xl border border-slate-800 bg-slate-900/90 backdrop-blur-md shadow-2xl";
+
+        if (!items.length) {
+          list.innerHTML = `<p class="text-sm text-slate-400 py-10 text-center">Belum ada data pemasukan pada periode ini.</p>`;
+          return;
+        }
+
+        list.innerHTML = `
+          <table class="w-full text-left border-collapse min-w-[640px]">
+            <thead class="bg-slate-950/90 text-[11px] font-bold text-slate-400 uppercase tracking-wider border-b border-slate-800">
+              <tr>
+                <th class="py-3.5 px-4">Tanggal</th>
+                <th class="py-3.5 px-4">Subkategori & Kategori</th>
+                <th class="py-3.5 px-4">Catatan</th>
+                <th class="py-3.5 px-4 text-right">Jumlah (Nominal)</th>
+                <th class="py-3.5 px-4 text-center">Bukti</th>
+                <th class="py-3.5 px-4 text-center">Aksi</th>
+              </tr>
+            </thead>
+            <tbody class="divide-y divide-slate-800/60 text-xs font-medium text-slate-200">
+              ${items.map((x) => `
+                <tr class="hover:bg-slate-800/50 transition">
+                  <td class="py-3 px-4 text-slate-300 font-mono text-[12px] whitespace-nowrap">${U.fmtDateID(x.date)}</td>
+                  <td class="py-3 px-4">
+                    <div class="flex items-center gap-2">
+                      <span class="w-2.5 h-2.5 rounded-full shrink-0" style="background:${INCOME_CATS[x.category]?.color || '#94A3B8'}"></span>
+                      <span class="font-bold text-white">${x.subcategory}</span>
+                      <span class="text-[11px] text-slate-400">(${INCOME_CATS[x.category]?.label || x.category})</span>
+                    </div>
+                  </td>
+                  <td class="py-3 px-4 text-slate-400 max-w-[200px] truncate">${x.note || '-'}</td>
+                  <td class="py-3 px-4 text-right font-mono font-bold text-emerald-400 text-sm whitespace-nowrap">+ ${U.fmtIDR(x.amount)}</td>
+                  <td class="py-3 px-4 text-center whitespace-nowrap">
+                    ${x.attachmentUrl ? `<button type="button" onclick="event.stopPropagation(); window.__cashApp.openAttachmentPreview('${x.attachmentUrl}')" class="inline-flex items-center gap-1.5 text-[11px] font-bold text-teal-300 bg-teal-500/20 border border-teal-500/30 rounded-lg px-2.5 py-1 hover:bg-teal-500/30 transition" title="Lihat bukti"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/></svg>Bukti</button>` : '<span class="text-slate-500 text-[11px]">-</span>'}
+                  </td>
+                  <td class="py-3 px-4 text-center whitespace-nowrap">
+                    <button type="button" data-edit="${x.id}" class="text-[11px] font-semibold text-slate-300 bg-slate-800 border border-slate-700 hover:border-teal-500/50 hover:text-white rounded-lg px-2.5 py-1 transition">Edit / Detail</button>
+                  </td>
+                </tr>
+              `).join('')}
+            </tbody>
+          </table>
+        `;
         list.querySelectorAll('[data-edit]').forEach((el) => el.addEventListener('click', () => this.openEntryForm('income', el.dataset.edit)));
       }
       renderAllocations() {
@@ -1882,45 +1965,68 @@ export default function Home({ initialView = 'dashboard' }) {
             sorted = sorted.slice(0, limit);
           }
         }
-        list.className = sorted.length ? "grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3.5" : "block";
-        list.innerHTML = sorted.length
-          ? sorted
-              .map(
-                (x) => {
-                  const targetVal = Number(x.targetAmount || 0);
-                  const amtVal = Number(x.amount || 0);
-                  const remVal = targetVal > 0 ? Math.max(0, targetVal - amtVal) : 0;
-                  const pctVal = targetVal > 0 ? Math.min(100, Math.round((amtVal / targetVal) * 100)) : 0;
+        list.className = "block overflow-x-auto rounded-2xl border border-slate-800 bg-slate-900/90 backdrop-blur-md shadow-2xl";
 
-                  const progressHtml = targetVal > 0
-                    ? `<div class="mt-2 pt-2 border-t border-slate-800/60 space-y-1.5">
-                        <div class="flex items-center justify-between text-[11.5px]">
-                          <span class="text-slate-400">Target: <strong class="text-white font-mono">${U.fmtIDR(targetVal)}</strong></span>
-                          <span class="font-bold ${pctVal >= 100 ? 'text-emerald-400' : 'text-amber-400'}">${pctVal}% ${pctVal >= 100 ? '🎉 Selesai' : `(Sisa ${U.fmtIDR(remVal)})`}</span>
-                        </div>
-                        <div class="w-full bg-slate-950 border border-slate-800 rounded-full h-2 overflow-hidden">
-                          <div class="h-full rounded-full transition-all duration-500 ${pctVal >= 100 ? 'bg-gradient-to-r from-emerald-500 to-teal-400' : 'bg-gradient-to-r from-amber-500 to-teal-500'}" style="width: ${pctVal}%"></div>
-                        </div>
-                      </div>`
-                    : '';
+        if (!sorted.length) {
+          list.innerHTML = `<p class="text-sm text-slate-400 py-10 text-center">Belum ada data dana alokasi pada periode ini.</p>`;
+          return;
+        }
 
-                  return `
-      <div data-edit="${x.id}" class="flex flex-col gap-2.5 p-4 rounded-2xl border border-slate-800/90 bg-slate-900/90 hover:border-teal-500/50 cursor-pointer transition text-slate-100 backdrop-blur-md shadow-lg">
-        <div class="flex items-center gap-3 min-w-0">
-          <span class="w-2.5 h-2.5 rounded-full shrink-0" style="background:${ALLOCATION_CATS[x.category].color}"></span>
-          <div class="min-w-0 flex-1">
-            <p class="text-sm font-bold text-white truncate">${x.subcategory}</p>
-            <p class="text-[12px] text-slate-400 mt-0.5">${U.fmtDateID(x.date)} · ${ALLOCATION_CATS[x.category].label}</p>
-          </div>
-          <span class="font-mono text-base font-bold text-amber-400">${U.fmtIDR(x.amount)}</span>
-          ${x.attachmentUrl ? `<button type="button" onclick="event.stopPropagation(); window.__cashApp.openAttachmentPreview('${x.attachmentUrl}')" class="shrink-0 w-8 h-8 rounded-xl bg-teal-500/20 border border-teal-500/30 flex items-center justify-center hover:bg-teal-500/30 transition text-teal-300" title="Lihat bukti"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/></svg></button>` : ''}
-        </div>
-        ${progressHtml}
-      </div>`;
-                }
-              )
-              .join('')
-          : `<p class="text-sm text-slate-400 py-8 text-center">Belum ada data dana alokasi pada periode ini.</p>`;
+        list.innerHTML = `
+          <table class="w-full text-left border-collapse min-w-[700px]">
+            <thead class="bg-slate-950/90 text-[11px] font-bold text-slate-400 uppercase tracking-wider border-b border-slate-800">
+              <tr>
+                <th class="py-3.5 px-4">Tanggal</th>
+                <th class="py-3.5 px-4">Subkategori & Kategori</th>
+                <th class="py-3.5 px-4">Target & Progress</th>
+                <th class="py-3.5 px-4 text-right">Jumlah Alokasi</th>
+                <th class="py-3.5 px-4 text-center">Bukti</th>
+                <th class="py-3.5 px-4 text-center">Aksi</th>
+              </tr>
+            </thead>
+            <tbody class="divide-y divide-slate-800/60 text-xs font-medium text-slate-200">
+              ${sorted.map((x) => {
+                const targetVal = Number(x.targetAmount || 0);
+                const amtVal = Number(x.amount || 0);
+                const remVal = targetVal > 0 ? Math.max(0, targetVal - amtVal) : 0;
+                const pctVal = targetVal > 0 ? Math.min(100, Math.round((amtVal / targetVal) * 100)) : 0;
+
+                const progressHtml = targetVal > 0
+                  ? `<div class="space-y-1 min-w-[180px]">
+                      <div class="flex items-center justify-between text-[11px]">
+                        <span class="text-slate-400">Target: <strong class="text-white font-mono">${U.fmtIDR(targetVal)}</strong></span>
+                        <span class="font-bold ${pctVal >= 100 ? 'text-emerald-400' : 'text-amber-400'}">${pctVal}%</span>
+                      </div>
+                      <div class="w-full bg-slate-950 border border-slate-800 rounded-full h-1.5 overflow-hidden">
+                        <div class="h-full rounded-full transition-all duration-500 ${pctVal >= 100 ? 'bg-gradient-to-r from-emerald-500 to-teal-400' : 'bg-gradient-to-r from-amber-500 to-teal-500'}" style="width: ${pctVal}%"></div>
+                      </div>
+                    </div>`
+                  : `<span class="text-slate-500 text-[11px]">-</span>`;
+
+                return `
+                  <tr class="hover:bg-slate-800/50 transition">
+                    <td class="py-3 px-4 text-slate-300 font-mono text-[12px] whitespace-nowrap">${U.fmtDateID(x.date)}</td>
+                    <td class="py-3 px-4">
+                      <div class="flex items-center gap-2">
+                        <span class="w-2.5 h-2.5 rounded-full shrink-0" style="background:${ALLOCATION_CATS[x.category]?.color || '#94A3B8'}"></span>
+                        <span class="font-bold text-white">${x.subcategory}</span>
+                        <span class="text-[11px] text-slate-400">(${ALLOCATION_CATS[x.category]?.label || x.category})</span>
+                      </div>
+                    </td>
+                    <td class="py-3 px-4">${progressHtml}</td>
+                    <td class="py-3 px-4 text-right font-mono font-bold text-amber-400 text-sm whitespace-nowrap">${U.fmtIDR(x.amount)}</td>
+                    <td class="py-3 px-4 text-center whitespace-nowrap">
+                      ${x.attachmentUrl ? `<button type="button" onclick="event.stopPropagation(); window.__cashApp.openAttachmentPreview('${x.attachmentUrl}')" class="inline-flex items-center gap-1.5 text-[11px] font-bold text-teal-300 bg-teal-500/20 border border-teal-500/30 rounded-lg px-2.5 py-1 hover:bg-teal-500/30 transition" title="Lihat bukti"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/></svg>Bukti</button>` : '<span class="text-slate-500 text-[11px]">-</span>'}
+                    </td>
+                    <td class="py-3 px-4 text-center whitespace-nowrap">
+                      <button type="button" data-edit="${x.id}" class="text-[11px] font-semibold text-slate-300 bg-slate-800 border border-slate-700 hover:border-teal-500/50 hover:text-white rounded-lg px-2.5 py-1 transition">Edit / Detail</button>
+                    </td>
+                  </tr>
+                `;
+              }).join('')}
+            </tbody>
+          </table>
+        `;
         list.querySelectorAll('[data-edit]').forEach((el) => el.addEventListener('click', () => this.openEntryForm('allocation', el.dataset.edit)));
       }
       renderReports() {
