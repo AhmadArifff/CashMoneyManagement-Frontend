@@ -77,6 +77,29 @@ export default function Home({ initialView = 'dashboard' }) {
         return r;
       },
       fmtIDR: (n) => 'Rp ' + Math.round(n || 0).toLocaleString('id-ID'),
+      formatNumberID: (val) => {
+        if (val === null || val === undefined || val === '') return '';
+        const clean = String(val).replace(/\D/g, '');
+        if (!clean) return '';
+        return Number(clean).toLocaleString('id-ID');
+      },
+      parseNumberID: (val) => {
+        if (!val) return 0;
+        const clean = String(val).replace(/\D/g, '');
+        return clean ? Number(clean) : 0;
+      },
+      attachRupiahInputMask: (inputEl) => {
+        if (!inputEl || inputEl.dataset.rupiahBound) return;
+        inputEl.dataset.rupiahBound = 'true';
+        const handler = () => {
+          const raw = inputEl.value;
+          if (!raw) return;
+          const formatted = U.formatNumberID(raw);
+          inputEl.value = formatted;
+        };
+        inputEl.addEventListener('input', handler);
+        inputEl.addEventListener('blur', handler);
+      },
       fmtDateID: (s) => U.parseD(s).toLocaleDateString('id-ID', { day: '2-digit', month: 'short', year: 'numeric' }),
       fmtDateShort: (s) => U.parseD(s).toLocaleDateString('id-ID', { day: '2-digit', month: 'short' }),
       getMonday: (d) => {
@@ -963,6 +986,12 @@ export default function Home({ initialView = 'dashboard' }) {
         rangeBtn?.addEventListener('click', () => this.fp.open());
       }
       bindModals() {
+        // Rupiah input masking
+        U.attachRupiahInputMask(document.getElementById('exp_amount'));
+        U.attachRupiahInputMask(document.getElementById('inc_amount'));
+        U.attachRupiahInputMask(document.getElementById('alc_amount'));
+        U.attachRupiahInputMask(document.getElementById('alc_target'));
+
         // auth bindings
         document.getElementById('authBtn')?.addEventListener('click', async () => {
           if (this.token) {
@@ -1322,7 +1351,7 @@ export default function Home({ initialView = 'dashboard' }) {
               this.refreshExpenseFormFields();
               document.getElementById('exp_sub').value = it.subcategory;
               document.getElementById('exp_freq').value = it.freq;
-              document.getElementById('exp_amount').value = it.amount;
+              document.getElementById('exp_amount').value = U.formatNumberID(it.amount);
               document.getElementById('exp_date').value = it.date;
               document.getElementById('exp_status').value = it.status;
               document.getElementById('exp_estimate').checked = !!it.isEstimate;
@@ -1354,7 +1383,7 @@ export default function Home({ initialView = 'dashboard' }) {
               document.getElementById('inc_category').value = it.category;
               document.getElementById('inc_category').onchange();
               document.getElementById('inc_sub').value = it.subcategory;
-              document.getElementById('inc_amount').value = it.amount;
+              document.getElementById('inc_amount').value = U.formatNumberID(it.amount);
               document.getElementById('inc_date').value = it.date;
               document.getElementById('inc_note').value = it.note || '';
               this.showExistingAttachment('incAttachPreview', it.attachmentUrl);
@@ -1382,8 +1411,8 @@ export default function Home({ initialView = 'dashboard' }) {
               document.getElementById('alc_category').value = it.category;
               document.getElementById('alc_category').onchange();
               document.getElementById('alc_sub').value = it.subcategory;
-              document.getElementById('alc_amount').value = it.amount;
-              if (document.getElementById('alc_target')) document.getElementById('alc_target').value = it.targetAmount || '';
+              document.getElementById('alc_amount').value = U.formatNumberID(it.amount);
+              if (document.getElementById('alc_target')) document.getElementById('alc_target').value = U.formatNumberID(it.targetAmount || '');
               document.getElementById('alc_date').value = it.date;
               document.getElementById('alc_note').value = it.note || '';
               this.showExistingAttachment('alcAttachPreview', it.attachmentUrl);
@@ -1405,7 +1434,7 @@ export default function Home({ initialView = 'dashboard' }) {
           category: cat,
           subcategory: document.getElementById('exp_sub').value || EXPENSE_CATS[cat].subs[EXPENSE_CATS[cat].subs.length - 1],
           freq: document.getElementById('exp_freq').value,
-          amount: Number(document.getElementById('exp_amount').value || 0),
+          amount: U.parseNumberID(document.getElementById('exp_amount').value || 0),
           date: document.getElementById('exp_date').value,
           status: cat === 'dinamis' ? 'paid' : document.getElementById('exp_status').value,
           isEstimate: document.getElementById('exp_estimate').checked,
@@ -1466,7 +1495,7 @@ export default function Home({ initialView = 'dashboard' }) {
           id,
           category: cat,
           subcategory: document.getElementById('inc_sub').value || INCOME_CATS[cat].subs[INCOME_CATS[cat].subs.length - 1],
-          amount: Number(document.getElementById('inc_amount').value || 0),
+          amount: U.parseNumberID(document.getElementById('inc_amount').value || 0),
           date: document.getElementById('inc_date').value,
           note: document.getElementById('inc_note').value,
           createdAt: Date.now(),
@@ -1520,8 +1549,8 @@ export default function Home({ initialView = 'dashboard' }) {
           id,
           category: cat,
           subcategory: document.getElementById('alc_sub').value || ALLOCATION_CATS[cat].subs[ALLOCATION_CATS[cat].subs.length - 1],
-          amount: Number(document.getElementById('alc_amount').value || 0),
-          targetAmount: Number(document.getElementById('alc_target')?.value || 0),
+          amount: U.parseNumberID(document.getElementById('alc_amount').value || 0),
+          targetAmount: U.parseNumberID(document.getElementById('alc_target')?.value || 0),
           date: document.getElementById('alc_date').value,
           note: document.getElementById('alc_note').value,
           createdAt: Date.now(),
@@ -2986,7 +3015,7 @@ export default function Home({ initialView = 'dashboard' }) {
     <div className="grid grid-cols-2 gap-3">
       <div>
         <label className="text-[12.5px] font-medium text-slate-300">Jumlah (Rp)</label>
-        <input id="exp_amount" type="number" min="0" step="1" required className="w-full mt-1 border border-slate-800 rounded-xl h-11 px-3 text-sm font-mono bg-slate-950 text-white focus:border-teal-500" placeholder="0" />
+        <input id="exp_amount" type="text" inputMode="numeric" required className="w-full mt-1 border border-slate-800 rounded-xl h-11 px-3 text-sm font-mono bg-slate-950 text-white focus:border-teal-500" placeholder="0" />
       </div>
       <div>
         <label className="text-[12.5px] font-medium text-slate-300">Tanggal</label>
@@ -3056,7 +3085,7 @@ export default function Home({ initialView = 'dashboard' }) {
     <div className="grid grid-cols-2 gap-3">
       <div>
         <label className="text-[12.5px] font-medium text-slate-300">Jumlah (Rp)</label>
-        <input id="inc_amount" type="number" min="0" step="1" required className="w-full mt-1 border border-slate-800 rounded-xl h-11 px-3 text-sm font-mono bg-slate-950 text-white focus:border-teal-500" placeholder="0" />
+        <input id="inc_amount" type="text" inputMode="numeric" required className="w-full mt-1 border border-slate-800 rounded-xl h-11 px-3 text-sm font-mono bg-slate-950 text-white focus:border-teal-500" placeholder="0" />
       </div>
       <div>
         <label className="text-[12.5px] font-medium text-slate-300">Tanggal</label>
@@ -3109,11 +3138,11 @@ export default function Home({ initialView = 'dashboard' }) {
     <div className="grid grid-cols-2 gap-3">
       <div>
         <label className="text-[12.5px] font-medium text-slate-300">Jumlah Terkumpul (Rp)</label>
-        <input id="alc_amount" type="number" min="0" step="1" required className="w-full mt-1 border border-slate-800 rounded-xl h-11 px-3 text-sm font-mono bg-slate-950 text-white focus:border-teal-500" placeholder="0" />
+        <input id="alc_amount" type="text" inputMode="numeric" required className="w-full mt-1 border border-slate-800 rounded-xl h-11 px-3 text-sm font-mono bg-slate-950 text-white focus:border-teal-500" placeholder="0" />
       </div>
       <div>
         <label className="text-[12.5px] font-medium text-slate-300">Target Dana (Rp)</label>
-        <input id="alc_target" type="number" min="0" step="1" className="w-full mt-1 border border-slate-800 rounded-xl h-11 px-3 text-sm font-mono bg-slate-950 text-white focus:border-teal-500" placeholder="Target Rp (opsional)" />
+        <input id="alc_target" type="text" inputMode="numeric" className="w-full mt-1 border border-slate-800 rounded-xl h-11 px-3 text-sm font-mono bg-slate-950 text-white focus:border-teal-500" placeholder="Target Rp (opsional)" />
       </div>
     </div>
     <div>
