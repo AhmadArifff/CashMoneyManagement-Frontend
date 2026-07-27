@@ -10,8 +10,8 @@ import LandingPage from './components/LandingPage';
 Chart.register(...registerables);
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api';
 
-export default function Home({ initialView = 'dashboard' }) {
-  const [isLandingVisible, setIsLandingVisible] = useState(true);
+export default function Home({ initialView = 'landing' }) {
+  const [isLandingVisible, setIsLandingVisible] = useState(initialView === 'landing');
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
@@ -21,12 +21,16 @@ export default function Home({ initialView = 'dashboard' }) {
     window.jspdf = { jsPDF };
 
     window.__onAuthChange = (isLoggedIn) => {
-      setIsLandingVisible(!isLoggedIn);
+      if (!isLoggedIn) {
+        setIsLandingVisible(true);
+      }
     };
 
-    const token = localStorage.getItem('cashmoney:token');
-    if (token) {
-      setIsLandingVisible(false);
+    if (initialView !== 'landing') {
+      const token = localStorage.getItem('cashmoney:token');
+      if (token) {
+        setIsLandingVisible(false);
+      }
     }
 
     // Registrasi Service Worker hanya pada mode produksi agar tidak mengganggu HMR dev server (404 chunks)
@@ -744,7 +748,7 @@ export default function Home({ initialView = 'dashboard' }) {
         this.bindModals();
         this.bindRangePicker();
         this.bindAttachmentPreviews();
-        this.switchView(this.initialView);
+        this.switchView(this.initialView === 'landing' ? 'dashboard' : this.initialView);
         
         this.token = await this.store.get(this.tokenKey);
         if (this.token) {
@@ -2283,7 +2287,7 @@ export default function Home({ initialView = 'dashboard' }) {
       window.__cashApp = app;
       const startApp = async () => {
         await app.init();
-        if (app.token) {
+        if (app.token && initialView !== 'landing') {
           setIsLandingVisible(false);
         }
       };
