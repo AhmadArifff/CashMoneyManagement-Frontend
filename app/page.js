@@ -270,37 +270,49 @@ export default function Home({ initialView = 'landing' }) {
         this.mem = {};
       }
       async get(key) {
-        if (this.hasWidgetStorage) {
+        let val = null;
+        if (this.hasLocalStorage) {
+          try { val = localStorage.getItem(key); } catch (_) {}
+        }
+        if (!val && typeof document !== 'undefined') {
+          try {
+            const match = document.cookie.match(new RegExp('(^| )' + encodeURIComponent(key) + '=([^;]+)'));
+            if (match) val = decodeURIComponent(match[2]);
+          } catch (_) {}
+        }
+        if (!val && this.hasWidgetStorage) {
           try {
             const r = await window.storage.get(key, false);
-            return r ? r.value : null;
-          } catch (e) {
-            return null;
-          }
+            val = r ? r.value : null;
+          } catch (_) {}
         }
-        if (this.hasLocalStorage) {
-          return localStorage.getItem(key);
-        }
-        return key in this.mem ? this.mem[key] : null;
+        return val || (key in this.mem ? this.mem[key] : null);
       }
       async set(key, value) {
+        this.mem[key] = value;
+        if (this.hasLocalStorage) {
+          try {
+            if (value === '' || value === null) {
+              localStorage.removeItem(key);
+            } else {
+              localStorage.setItem(key, value);
+            }
+          } catch (_) {}
+        }
+        if (typeof document !== 'undefined') {
+          try {
+            if (value === '' || value === null) {
+              document.cookie = `${encodeURIComponent(key)}=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;`;
+            } else {
+              document.cookie = `${encodeURIComponent(key)}=${encodeURIComponent(value)}; max-age=2592000; path=/; SameSite=Lax`;
+            }
+          } catch (_) {}
+        }
         if (this.hasWidgetStorage) {
           try {
             await window.storage.set(key, value, false);
-            return true;
-          } catch (e) {
-            return false;
-          }
+          } catch (_) {}
         }
-        if (this.hasLocalStorage) {
-          try {
-            localStorage.setItem(key, value);
-            return true;
-          } catch (e) {
-            return false;
-          }
-        }
-        this.mem[key] = value;
         return true;
       }
     }
@@ -785,13 +797,15 @@ export default function Home({ initialView = 'landing' }) {
           if (rawUser) {
             try {
               await this.setUser(JSON.parse(rawUser));
-            } catch (_) {
-              await this.setUser(null);
-            }
+            } catch (_) {}
           }
-          const me = await this.fetchMe();
-          if (me) {
-            await this.setUser(me);
+          try {
+            const me = await this.fetchMe();
+            if (me) {
+              await this.setUser(me);
+            }
+          } catch (e) {
+            console.warn('fetchMe failed on startup, using cached session:', e);
           }
         }
 
@@ -965,7 +979,16 @@ export default function Home({ initialView = 'landing' }) {
           }
           this.switchView(view);
         };
-        document.querySelectorAll('[data-view]').forEach((btn) => btn.addEventListener('click', async () => go(btn.dataset.view)));
+        document.querySelectorAll('[data-view]').forEach((btn) => btn.addEventListener('click', async (e) => {
+          if (e) e.preventDefault();
+          const targetView = btn.dataset.view;
+          if (targetView) {
+            try {
+              window.history.pushState({}, '', `/${targetView}`);
+            } catch (_) {}
+            await go(targetView);
+          }
+        }));
         document.getElementById('alertBell')?.addEventListener('click', (e) => {
           e.stopPropagation();
           this.toggleAlertDropdown();
