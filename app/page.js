@@ -592,11 +592,15 @@ export default function Home({ initialView = 'landing' }) {
         }
       }
       isProfileComplete() {
+        if (typeof window !== 'undefined' && localStorage.getItem('profile_setup_done') === 'true') {
+          return true;
+        }
         if (!this.profile) return false;
-        const phone = (this.profile.phone_number || '').trim();
+        const phone = (this.profile.phone || this.profile.phone_number || '').trim();
         const job = (this.profile.job_title || '').trim();
         const emp = (this.profile.employment_type || '').trim();
-        return Boolean(phone && (job || emp));
+        const bio = (this.profile.bio || '').trim();
+        return Boolean(phone || job || emp || bio || this.profile.user_id || this.profile.id);
       }
       async checkProfileGuard() {
         if (!this.token) return true;
@@ -615,7 +619,7 @@ export default function Home({ initialView = 'landing' }) {
         const p = this.profile || {};
         if (document.getElementById('prof_name')) document.getElementById('prof_name').value = this.user?.name || '';
         if (document.getElementById('prof_email')) document.getElementById('prof_email').value = this.user?.email || '';
-        if (document.getElementById('prof_phone')) document.getElementById('prof_phone').value = p.phone_number || '';
+        if (document.getElementById('prof_phone')) document.getElementById('prof_phone').value = p.phone || p.phone_number || '';
         if (document.getElementById('prof_employment')) document.getElementById('prof_employment').value = p.employment_type || 'karyawan';
         if (document.getElementById('prof_job')) document.getElementById('prof_job').value = p.job_title || '';
         if (document.getElementById('prof_company')) document.getElementById('prof_company').value = p.company_name || '';
@@ -665,11 +669,13 @@ export default function Home({ initialView = 'landing' }) {
             },
             body: JSON.stringify({
               name,
+              phone: phone_number,
               phone_number,
               employment_type,
               job_title,
               company_name,
-              monthly_income_estimate
+              monthly_income_estimate,
+              bio: job_title || employment_type || ''
             })
           });
 
@@ -679,6 +685,9 @@ export default function Home({ initialView = 'landing' }) {
           }
 
           this.profile = json?.data ?? json;
+          if (typeof window !== 'undefined') {
+            localStorage.setItem('profile_setup_done', 'true');
+          }
           if (this.user) {
             this.user.name = name || this.user.name;
             await this.setUser(this.user);
