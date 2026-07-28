@@ -701,9 +701,9 @@ export default function Home({ initialView = 'landing' }) {
           if (el) el.style.opacity = '1';
 
           await Promise.all([
-            this.expenses.load(),
-            this.incomes.load(),
-            this.allocations.load()
+            this.expenses.load({ start: this.range.start, end: this.range.end }),
+            this.incomes.load({ start: this.range.start, end: this.range.end }),
+            this.allocations.load({ start: this.range.start, end: this.range.end })
           ]);
 
           // Automatically expand date range if items exist outside current default range
@@ -1025,7 +1025,7 @@ export default function Home({ initialView = 'landing' }) {
           dateFormat: 'Y-m-d',
           defaultDate: [this.range.start, this.range.end],
           positionElement: rangeBtn || undefined,
-          appendTo: rangeBtn?.parentElement || undefined,
+          disableMobile: true,
           locale: { rangeSeparator: ' s/d ' },
           onClose: (selectedDates) => {
             if (selectedDates.length === 2) {
@@ -2058,7 +2058,7 @@ export default function Home({ initialView = 'landing' }) {
         document.getElementById('totDinamis').textContent = U.fmtIDR(actual.filter((x) => x.category === 'dinamis').reduce((s, x) => s + Number(x.amount), 0));
         const list = document.getElementById('expenseList');
         if (!list) return;
-        list.className = "block overflow-x-auto rounded-2xl border border-slate-800 bg-slate-900/90 backdrop-blur-md shadow-2xl";
+        list.className = "block w-full min-w-0 overflow-x-auto rounded-2xl border border-slate-800 bg-slate-900/90 backdrop-blur-md shadow-2xl";
 
         if (!items.length) {
           list.innerHTML = `<p class="text-sm text-slate-400 py-10 text-center">Belum ada data pengeluaran pada periode ini.</p>`;
@@ -2127,7 +2127,7 @@ export default function Home({ initialView = 'landing' }) {
 
         const list = document.getElementById('incomeList');
         if (!list) return;
-        list.className = "block overflow-x-auto rounded-2xl border border-slate-800 bg-slate-900/90 backdrop-blur-md shadow-2xl";
+        list.className = "block w-full min-w-0 overflow-x-auto rounded-2xl border border-slate-800 bg-slate-900/90 backdrop-blur-md shadow-2xl";
 
         if (!items.length) {
           list.innerHTML = `<p class="text-sm text-slate-400 py-10 text-center">Belum ada data pemasukan pada periode ini.</p>`;
@@ -2237,7 +2237,7 @@ export default function Home({ initialView = 'landing' }) {
             sorted = sorted.slice(0, limit);
           }
         }
-        list.className = "block overflow-x-auto rounded-2xl border border-slate-800 bg-slate-900/90 backdrop-blur-md shadow-2xl";
+        list.className = "block w-full min-w-0 overflow-x-auto rounded-2xl border border-slate-800 bg-slate-900/90 backdrop-blur-md shadow-2xl";
 
         if (!sorted.length) {
           list.innerHTML = `<p class="text-sm text-slate-400 py-10 text-center">Belum ada data dana alokasi pada periode ini.</p>`;
@@ -2684,10 +2684,10 @@ export default function Home({ initialView = 'landing' }) {
         </div>
 
         <div className="relative">
-          <div id="userTile" className="hidden items-center gap-2 rounded-2xl border border-slate-700/80 bg-slate-800/90 px-3 py-1.5 text-xs text-slate-300 cursor-pointer hover:border-teal-500/50 transition">
-            <span className="w-6 h-6 rounded-full bg-gradient-to-tr from-teal-500 to-emerald-400 text-slate-950 font-bold flex items-center justify-center text-[10px] shadow-sm">👤</span>
-            <span id="userNameDisplay" className="font-bold text-white text-xs"></span>
-            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" className="text-slate-400 ml-0.5"><path d="m6 9 6 6 6-6"/></svg>
+          <div id="userTile" className="hidden flex items-center gap-2 rounded-2xl border border-slate-700/80 bg-slate-800/90 px-2 sm:px-3 py-1.5 text-xs text-slate-300 cursor-pointer hover:border-teal-500/50 transition shrink-0">
+            <span className="w-6 h-6 shrink-0 rounded-full bg-gradient-to-tr from-teal-500 to-emerald-400 text-slate-950 font-bold flex items-center justify-center text-[10px] shadow-sm">👤</span>
+            <span id="userNameDisplay" className="hidden sm:block font-bold text-white text-xs truncate max-w-[100px]"></span>
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" className="text-slate-400 ml-0.5 shrink-0"><path d="m6 9 6 6 6-6"/></svg>
           </div>
 
           <div id="userDropdown" className="hidden absolute right-0 top-[calc(100%+8px)] w-56 bg-slate-900/95 border border-slate-700/80 shadow-2xl z-40 overflow-hidden flex flex-col backdrop-blur-xl rounded-2xl text-slate-100 p-1.5 space-y-1">
