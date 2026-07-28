@@ -1825,8 +1825,13 @@ export default function Home({ initialView = 'landing' }) {
           days.push({ key, total, label: d.toLocaleDateString('id-ID', { weekday: 'short' }) });
         }
         const weekTotal = days.reduce((s, d) => s + d.total, 0);
-        const monthKey = U.monthKey(this.range.end);
-        const monthTotal = items.filter((x) => U.monthKey(x.date) === monthKey).reduce((s, x) => s + Number(x.amount || 0), 0);
+        const rangeTotal = items
+          .filter((x) => x.date >= this.range.start && x.date <= this.range.end)
+          .reduce((s, x) => s + Number(x.amount || 0), 0);
+        const isSameMonth = this.range.start.slice(0, 7) === this.range.end.slice(0, 7);
+        const rangeDisplayLabel = isSameMonth
+          ? U.monthLabel(this.range.start.slice(0, 7))
+          : `Total Periode`;
         const maxDay = Math.max(...days.map((d) => d.total), 1);
 
         wrap.innerHTML = `
@@ -1847,15 +1852,15 @@ export default function Home({ initialView = 'landing' }) {
         <svg width="20" height="16" viewBox="0 0 24 24" fill="none" stroke="#2DD4BF" strokeWidth="2.5" class="shrink-0 mb-7 text-teal-400"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
         <div class="flex flex-col items-center gap-1 shrink-0">
           <div class="w-36 h-28 rounded-2xl bg-gradient-to-br ${boxStyle} border flex flex-col items-center justify-center text-white p-3.5 shadow-xl backdrop-blur-md shrink-0">
-            <span class="text-[11px] font-semibold text-slate-300">Minggu Ini (${labelGroup})</span>
+            <span class="text-[11px] font-semibold text-slate-300">7 Hari Terakhir (${labelGroup})</span>
             <span class="font-mono text-xs sm:text-sm font-extrabold text-white mt-1 text-center truncate w-full px-1" title="${U.fmtIDR(weekTotal)}">${U.fmtIDR(weekTotal)}</span>
           </div>
         </div>
         <svg width="20" height="16" viewBox="0 0 24 24" fill="none" stroke="#2DD4BF" strokeWidth="2.5" class="shrink-0 mb-7 text-teal-400"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
         <div class="flex flex-col items-center gap-1 shrink-0">
-          <div class="w-40 h-28 rounded-2xl bg-gradient-to-br from-slate-900 to-slate-950 border border-slate-800 flex flex-col items-center justify-center text-white p-3.5 shadow-xl backdrop-blur-md shrink-0">
-            <span class="text-[11px] font-semibold text-slate-400">${U.monthLabel(monthKey)}</span>
-            <span class="font-mono text-xs sm:text-sm font-extrabold ${monthColor} mt-1 text-center truncate w-full px-1" title="${U.fmtIDR(monthTotal)}">${U.fmtIDR(monthTotal)}</span>
+          <div class="w-44 h-28 rounded-2xl bg-gradient-to-br from-slate-900 to-slate-950 border border-slate-800 flex flex-col items-center justify-center text-white p-3 shadow-xl backdrop-blur-md shrink-0">
+            <span class="text-[11px] font-semibold text-slate-400 text-center leading-tight truncate w-full" title="${rangeDisplayLabel}">${rangeDisplayLabel}</span>
+            <span class="font-mono text-xs sm:text-sm font-extrabold ${monthColor} mt-1 text-center truncate w-full px-1" title="${U.fmtIDR(rangeTotal)}">${U.fmtIDR(rangeTotal)}</span>
           </div>
         </div>
       </div>`;
