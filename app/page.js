@@ -3202,10 +3202,6 @@ export default function Home({ initialView = 'landing' }) {
             </div>
           </div>
         </div>
-            <p className="text-[13px] text-slate-400">Dana Darurat, Asuransi, Investasi, dan Cadangan Likuiditas</p>
-          </div>
-          <button data-add="allocation" className="bg-gradient-to-r from-teal-500 to-emerald-500 hover:from-teal-400 hover:to-emerald-400 text-slate-950 text-sm font-bold rounded-xl px-4.5 h-10 shadow-lg shadow-teal-500/20">+ Catat Alokasi</button>
-        </div>
 
         <div className="flex flex-col sm:flex-row items-center gap-3">
           <div className="relative flex-1 w-full">
