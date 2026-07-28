@@ -145,20 +145,29 @@ export default function Home({ initialView = 'landing' }) {
 
     const EXPENSE_CATS = {
       tetap: {
-        label: 'Pengeluaran Tetap',
+        label: 'Pengeluaran Tetap (Fixed Expenses)',
         color: '#1F6F5C',
+        description: 'Pengeluaran rutin bulanan yang nilainya cenderung konstan dan WAJIB dibayar setiap periode. Memiliki sanksi/denda jika terlambat.',
+        examples: 'Sewa/KPR Rumah, Tagihan Listrik/Air/Wi-Fi, Cicilan Kendaraan, SPP Sekolah, Premi Asuransi.',
+        tips: '💡 Porsi ideal: Maksimal 30% - 40% dari total penghasilan bulanan Anda.',
         freq: [['harian', 'Harian'], ['mingguan', 'Mingguan'], ['bulanan', 'Bulanan']],
         subs: ['Sewa/Kontrakan Rumah', 'Tagihan Internet', 'Tagihan Listrik', 'Tagihan Air', 'Cicilan/KPR', 'Premi Asuransi', 'Langganan Digital', 'Lainnya'],
       },
       berkala: {
-        label: 'Pengeluaran Berkala',
+        label: 'Pengeluaran Berkala (Periodic Expenses)',
         color: '#DE9518',
+        description: 'Pengeluaran yang tidak terjadi setiap bulan, tetapi waktunya terprediksi (misal: per 3 bulan, 6 bulan, atau tahunan).',
+        examples: 'Pajak STNK / Kendaraan, Servis Besar Mobil/Motor, Pajak PBB, Zakat Maal / Sumbangan Tahunan.',
+        tips: '💡 Tips Finansial: Sisihkan dana tiap bulan agar tidak kaget saat jatuh tempo bayar.',
         freq: [['3bulan', 'Tiap 3 Bulan'], ['6bulan', 'Tiap 6 Bulan'], ['tahunan', 'Tahunan']],
         subs: ['Pajak Kendaraan', 'Servis Besar Kendaraan', 'Perpanjangan STNK', 'Zakat / Sumbangan Tahunan', 'Lainnya'],
       },
       dinamis: {
-        label: 'Pengeluaran Dinamis / Variabel',
+        label: 'Pengeluaran Dinamis / Variabel (Variable Expenses)',
         color: '#B8471F',
+        description: 'Pengeluaran harian atau fleksibel yang jumlahnya dapat berubah-ubah dan relatif bisa dikontrol sesuai gaya hidup.',
+        examples: 'Makan & Minum di luar, Transportasi/BBM, Belanja Hobi, Hiburan/Nonton, Belanja Pakaian, Jajan.',
+        tips: '💡 Tips Finansial: Pos terbaik untuk dihemat jika ingin menaikkan kapasitas alokasi tabungan & investasi.',
         freq: [['harian', 'Harian'], ['mingguan', 'Mingguan'], ['bulanan', 'Bulanan']],
         subs: ['Makan & Minum', 'Transportasi / BBM', 'Rekreasi / Hiburan', 'Belanja Kebutuhan', 'Kesehatan', 'Lainnya'],
       },
@@ -166,23 +175,64 @@ export default function Home({ initialView = 'landing' }) {
 
     const INCOME_CATS = {
       earned: {
-        label: 'Earned / Active Income',
+        label: 'Earned / Active Income (Penghasilan Aktif)',
         color: '#1F6F5C',
+        description: 'Penghasilan utama dari pertukaran waktu & tenaga secara langsung (bekerja/berjasa).',
+        examples: 'Gaji Bulanan, Upah Harian, Bonus Kinerja, Komisi Penjualan, Project Freelance.',
+        tips: '💡 Sumber modal awal untuk menopang biaya hidup & membangun aset.',
         subs: ['Gaji Bulanan', 'Upah Harian', 'Bonus', 'Komisi', 'Pekerjaan Lepas', 'Lainnya'],
       },
-      passive: { label: 'Passive Income', color: '#4FA88E', subs: ['Sewa Properti', 'Royalti', 'Afiliasi', 'Lainnya'] },
+      passive: {
+        label: 'Passive Income (Penghasilan Pasif)',
+        color: '#4FA88E',
+        description: 'Penghasilan yang terus mengalir secara otomatis dari sistem atau aset tanpa kehadiran fisik harian.',
+        examples: 'Hasil Sewa Kontrakan/Kosan, Royalti Karya/Buku, Lisensi Software, Bisnis Berjalan via Manager.',
+        tips: '💡 Target kebebasan finansial! Semakin besar pasif income, semakin mandiri keuangan Anda.',
+        subs: ['Sewa Properti', 'Royalti', 'Afiliasi', 'Lainnya'],
+      },
       portfolio: {
-        label: 'Portfolio / Investment Income',
+        label: 'Portfolio / Investment Income (Penghasilan Investasi)',
         color: '#7EC2AC',
+        description: 'Penghasilan dari pertumbuhan dan imbal hasil aset keuangan/pasar modal.',
+        examples: 'Dividen Saham, Bunga Deposito, Gain Reksadana, Kupon Obligasi/ORISURI.',
+        tips: '💡 Hasil dari membiarkan uang bekerja untuk Anda (Money works for you).',
         subs: ['Dividen Saham', 'Bunga Deposito', 'Capital Gain', 'Reksadana', 'Lainnya'],
       },
     };
 
     const ALLOCATION_CATS = {
-      darurat: { label: 'Dana Darurat', color: '#1F6F5C', subs: ['Dana Darurat'] },
-      asuransi: { label: 'Asuransi', color: '#4FA88E', subs: ['Asuransi Jiwa', 'Asuransi Kesehatan', 'Asuransi Kendaraan', 'Lainnya'] },
-      investasi: { label: 'Investasi', color: '#DE9518', subs: ['Saham', 'Reksadana', 'Obligasi', 'Emas', 'Kripto', 'Lainnya'] },
-      cadangan: { label: 'Dana Cadangan / Likuiditas', color: '#B8471F', subs: ['Dana Liburan', 'Dana Perayaan', 'Cadangan Lainnya'] },
+      darurat: {
+        label: 'Dana Darurat (Emergency Fund)',
+        color: '#1F6F5C',
+        description: 'Bantal pengaman finansial cair untuk menghadapi krisis darurat (PHK, sakit mendadak, musibah).',
+        examples: 'Tabungan khusus di rekening terpisah / Reksadana Pasar Uang.',
+        tips: '💡 Target Ideal: 3–6 bulan pengeluaran (lajang) atau 6–12 bulan pengeluaran (berkeluarga).',
+        subs: ['Dana Darurat'],
+      },
+      asuransi: {
+        label: 'Asuransi & Proteksi (Financial Risk Transfer)',
+        color: '#4FA88E',
+        description: 'Alokasi pengaman agar kekayaan & tabungan tidak ludes akibat risiko kesehatan/jiwa.',
+        examples: 'BPJS Kesehatan, Asuransi Kesehatan Swasta, Asuransi Jiwa Term-Life, Asuransi Kendaraan.',
+        tips: '💡 Fondasi paling dasar sebelum mulai berinvestasi risiko tinggi.',
+        subs: ['Asuransi Jiwa', 'Asuransi Kesehatan', 'Asuransi Kendaraan', 'Lainnya'],
+      },
+      investasi: {
+        label: 'Investasi Pertumbuhan (Wealth Growth)',
+        color: '#DE9518',
+        description: 'Alokasi dana jangka panjang untuk mengalahkan inflasi dan membangun kekayaan.',
+        examples: 'Saham Bluechip, Reksadana Saham/Campuran, Obligasi Pemerintah (SBR/ORI), Emas Batangan.',
+        tips: '💡 Lakukan secara rutin tiap bulan (Dollar Cost Averaging).',
+        subs: ['Saham', 'Reksadana', 'Obligasi', 'Emas', 'Kripto', 'Lainnya'],
+      },
+      cadangan: {
+        label: 'Dana Cadangan & Target Khusus (Short-Term Goals)',
+        color: '#B8471F',
+        description: 'Alokasi tabungan untuk rencana pengeluaran khusus di masa depan (jangka pendek/menengah).',
+        examples: 'Dana Liburan, DP Rumah/Motor, Dana Perayaan Hari Raya, Gadget/Komputer Baru.',
+        tips: '💡 Dipisahkan agar tidak terpakai untuk kebutuhan harian.',
+        subs: ['Dana Liburan', 'Dana Perayaan', 'Cadangan Lainnya'],
+      },
     };
 
     const expenseToBackend = (item) => ({
@@ -1406,18 +1456,32 @@ export default function Home({ initialView = 'landing' }) {
         this.openModal('confirmModal');
       }
       refreshExpenseFormFields() {
-        const cat = document.getElementById('exp_category').value;
+        const cat = document.getElementById('exp_category')?.value || 'dinamis';
         const def = EXPENSE_CATS[cat];
         const freqSel = document.getElementById('exp_freq');
-        if (freqSel) {
+        if (freqSel && def?.freq) {
           freqSel.innerHTML = def.freq.map(([v, l]) => `<option value="${v}">${l}</option>`).join('');
         }
         const subList = document.getElementById('exp_sub_list');
-        if (subList) {
+        if (subList && def?.subs) {
           subList.innerHTML = def.subs.map((s) => `<option value="${s}">`).join('');
         }
         const statusWrap = document.getElementById('exp_status_wrap');
         if (statusWrap) statusWrap.classList.toggle('hidden', cat === 'dinamis');
+
+        const help = document.getElementById('exp_cat_help');
+        if (help && def) {
+          help.innerHTML = `
+            <div class="space-y-1">
+              <p class="font-bold text-white text-[12px] flex items-center gap-1.5">
+                <span class="w-2 h-2 rounded-full shrink-0" style="background:${def.color}"></span>
+                ${def.label}
+              </p>
+              <p class="text-[11px] text-slate-300">${def.description}</p>
+              <p class="text-[10.5px] text-slate-400"><strong>Contoh:</strong> ${def.examples}</p>
+              <p class="text-[10.5px] text-teal-300 font-medium">${def.tips}</p>
+            </div>`;
+        }
       }
       openEntryForm(type, existingId) {
         if (type === 'expense') {
@@ -1458,16 +1522,37 @@ export default function Home({ initialView = 'landing' }) {
           document.getElementById('inc_delete')?.classList.add('hidden');
           document.getElementById('inc_date').value = U.todayStr();
           this.showExistingAttachment('incAttachPreview', null);
-          document.getElementById('inc_sub_list').innerHTML = INCOME_CATS.earned.subs.map((s) => `<option value="${s}">`).join('');
-          document.getElementById('inc_category').onchange = () => {
-            document.getElementById('inc_sub_list').innerHTML = INCOME_CATS[document.getElementById('inc_category').value].subs.map((s) => `<option value="${s}">`).join('');
+          const updateIncHelp = () => {
+            const catKey = document.getElementById('inc_category')?.value || 'earned';
+            const def = INCOME_CATS[catKey];
+            if (def) {
+              const subEl = document.getElementById('inc_sub_list');
+              if (subEl) subEl.innerHTML = def.subs.map((s) => `<option value="${s}">`).join('');
+              const help = document.getElementById('inc_cat_help');
+              if (help) {
+                help.innerHTML = `
+                  <div class="space-y-1">
+                    <p class="font-bold text-white text-[12px] flex items-center gap-1.5">
+                      <span class="w-2 h-2 rounded-full shrink-0" style="background:${def.color}"></span>
+                      ${def.label}
+                    </p>
+                    <p class="text-[11px] text-slate-300">${def.description}</p>
+                    <p class="text-[10.5px] text-slate-400"><strong>Contoh:</strong> ${def.examples}</p>
+                    <p class="text-[10.5px] text-teal-300 font-medium">${def.tips}</p>
+                  </div>`;
+              }
+            }
           };
+          const incCatSelect = document.getElementById('inc_category');
+          if (incCatSelect) incCatSelect.onchange = updateIncHelp;
+          updateIncHelp();
+
           if (existingId) {
             const it = this.incomes.find(existingId);
             if (it) {
               document.getElementById('inc_id').value = it.id;
               document.getElementById('inc_category').value = it.category;
-              document.getElementById('inc_category').onchange();
+              updateIncHelp();
               document.getElementById('inc_sub').value = it.subcategory;
               document.getElementById('inc_amount').value = U.formatNumberID(it.amount);
               document.getElementById('inc_date').value = it.date;
@@ -1486,10 +1571,30 @@ export default function Home({ initialView = 'landing' }) {
           document.getElementById('alc_date').value = U.todayStr();
           if (document.getElementById('alc_target')) document.getElementById('alc_target').value = '';
           this.showExistingAttachment('alcAttachPreview', null);
-          document.getElementById('alc_sub_list').innerHTML = ALLOCATION_CATS.darurat.subs.map((s) => `<option value="${s}">`).join('');
-          document.getElementById('alc_category').onchange = () => {
-            document.getElementById('alc_sub_list').innerHTML = ALLOCATION_CATS[document.getElementById('alc_category').value].subs.map((s) => `<option value="${s}">`).join('');
+          const updateAlcHelp = () => {
+            const catKey = document.getElementById('alc_category')?.value || 'darurat';
+            const def = ALLOCATION_CATS[catKey];
+            if (def) {
+              const subEl = document.getElementById('alc_sub_list');
+              if (subEl) subEl.innerHTML = def.subs.map((s) => `<option value="${s}">`).join('');
+              const help = document.getElementById('alc_cat_help');
+              if (help) {
+                help.innerHTML = `
+                  <div class="space-y-1">
+                    <p class="font-bold text-white text-[12px] flex items-center gap-1.5">
+                      <span class="w-2 h-2 rounded-full shrink-0" style="background:${def.color}"></span>
+                      ${def.label}
+                    </p>
+                    <p class="text-[11px] text-slate-300">${def.description}</p>
+                    <p class="text-[10.5px] text-slate-400"><strong>Contoh:</strong> ${def.examples}</p>
+                    <p class="text-[10.5px] text-amber-300 font-medium">${def.tips}</p>
+                  </div>`;
+              }
+            }
           };
+          const alcCatSelect = document.getElementById('alc_category');
+          if (alcCatSelect) alcCatSelect.onchange = updateAlcHelp;
+          updateAlcHelp();
           if (existingId) {
             const it = this.allocations.find(existingId);
             if (it) {
@@ -2895,6 +3000,45 @@ export default function Home({ initialView = 'landing' }) {
           <button data-add="expense" className="bg-gradient-to-r from-teal-500 to-emerald-500 hover:from-teal-400 hover:to-emerald-400 text-slate-950 text-sm font-bold rounded-xl px-4.5 h-10 shadow-lg shadow-teal-500/20">+ Catat Pengeluaran</button>
         </div>
 
+        {/* Panduan Kategori Pengeluaran */}
+        <div className="bg-slate-900/90 border border-slate-800 rounded-2xl p-4 space-y-2.5 backdrop-blur-md shadow-lg">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <div className="w-6.5 h-6.5 rounded-lg bg-teal-500/20 border border-teal-500/30 flex items-center justify-center text-teal-400 shrink-0">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/></svg>
+              </div>
+              <h3 className="font-display font-bold text-xs sm:text-sm text-white">Panduan Pengelolaan Kategori Pengeluaran</h3>
+            </div>
+            <span className="text-[11px] text-slate-400 font-medium hidden sm:inline">Penyusunan Arus Kas Ideal</span>
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-2.5 text-xs">
+            <div className="p-3 rounded-xl bg-slate-950/80 border border-teal-500/30 space-y-1">
+              <div className="flex items-center gap-1.5">
+                <span className="w-2.5 h-2.5 rounded-full bg-[#1F6F5C]"></span>
+                <strong className="text-teal-300 font-bold">1. Pengeluaran Tetap</strong>
+              </div>
+              <p className="text-slate-400 text-[11px]">Tagihan rutin bulanan bernilai konstan &amp; wajib (Sewa/KPR, Listrik, Air, Wi-Fi, Cicilan, SPP). Memiliki sanksi/denda jika terlambat.</p>
+              <p className="text-teal-400/90 text-[10.5px] font-semibold pt-0.5">💡 Porsi ideal: Maksimal 30–40% dari total penghasilan.</p>
+            </div>
+            <div className="p-3 rounded-xl bg-slate-950/80 border border-amber-500/30 space-y-1">
+              <div className="flex items-center gap-1.5">
+                <span className="w-2.5 h-2.5 rounded-full bg-[#DE9518]"></span>
+                <strong className="text-amber-300 font-bold">2. Pengeluaran Berkala</strong>
+              </div>
+              <p className="text-slate-400 text-[11px]">Pengeluaran rutin dengan siklus terprediksi di luar bulanan (Pajak STNK, Servis Besar Kendaraan, PBB, Zakat Tahunan).</p>
+              <p className="text-amber-400/90 text-[10.5px] font-semibold pt-0.5">💡 Tips: Cicil tabung tiap bulan agar tidak kaget.</p>
+            </div>
+            <div className="p-3 rounded-xl bg-slate-950/80 border border-rose-500/30 space-y-1">
+              <div className="flex items-center gap-1.5">
+                <span className="w-2.5 h-2.5 rounded-full bg-[#B8471F]"></span>
+                <strong className="text-rose-300 font-bold">3. Pengeluaran Dinamis</strong>
+              </div>
+              <p className="text-slate-400 text-[11px]">Pengeluaran harian/fleksibel (Makan luar, Hiburan, Transportasi, Belanja hobi/pakaian, Jajan). Sangat mudah dikontrol.</p>
+              <p className="text-rose-400/90 text-[10.5px] font-semibold pt-0.5">💡 Pos terbaik dihemat jika ingin menaikkan tabungan!</p>
+            </div>
+          </div>
+        </div>
+
         <div className="flex flex-col sm:flex-row items-center gap-3">
           <div className="relative flex-1 w-full">
             <svg className="absolute left-3.5 top-1/2 -translate-y-1/2" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#94A3B8" strokeWidth="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
@@ -2937,6 +3081,45 @@ export default function Home({ initialView = 'landing' }) {
           <button data-add="income" className="bg-gradient-to-r from-teal-500 to-emerald-500 hover:from-teal-400 hover:to-emerald-400 text-slate-950 text-sm font-bold rounded-xl px-4.5 h-10 shadow-lg shadow-teal-500/20">+ Catat Pemasukan</button>
         </div>
 
+        {/* Panduan 3 Pilar Pemasukan */}
+        <div className="bg-slate-900/90 border border-slate-800 rounded-2xl p-4 space-y-2.5 backdrop-blur-md shadow-lg">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <div className="w-6.5 h-6.5 rounded-lg bg-teal-500/20 border border-teal-500/30 flex items-center justify-center text-teal-400 shrink-0">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/></svg>
+              </div>
+              <h3 className="font-display font-bold text-xs sm:text-sm text-white">Panduan 3 Pilar Sumber Pemasukan Keuangan</h3>
+            </div>
+            <span className="text-[11px] text-slate-400 font-medium hidden sm:inline">Diversifikasi Portfolio Income</span>
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-2.5 text-xs">
+            <div className="p-3 rounded-xl bg-slate-950/80 border border-teal-500/30 space-y-1">
+              <div className="flex items-center gap-1.5">
+                <span className="w-2.5 h-2.5 rounded-full bg-[#1F6F5C]"></span>
+                <strong className="text-teal-300 font-bold">1. Earned / Active Income</strong>
+              </div>
+              <p className="text-slate-400 text-[11px]">Penghasilan dari pertukaran waktu &amp; tenaga secara langsung (Gaji Bulanan, Upah Harian, Bonus Kinerja, Freelance, Komisi).</p>
+              <p className="text-teal-400/90 text-[10.5px] font-semibold pt-0.5">💡 Sumber modal awal untuk biaya hidup &amp; investasi.</p>
+            </div>
+            <div className="p-3 rounded-xl bg-slate-950/80 border border-emerald-500/30 space-y-1">
+              <div className="flex items-center gap-1.5">
+                <span className="w-2.5 h-2.5 rounded-full bg-[#4FA88E]"></span>
+                <strong className="text-emerald-300 font-bold">2. Passive Income</strong>
+              </div>
+              <p className="text-slate-400 text-[11px]">Penghasilan dari aset/sistem tanpa kehadiran fisik harian (Sewa Kos/Kontrakan, Royalti Karya, Lisensi Software, Bisnis Auto-pilot).</p>
+              <p className="text-emerald-400/90 text-[10.5px] font-semibold pt-0.5">💡 Target kebebasan finansial jangka panjang.</p>
+            </div>
+            <div className="p-3 rounded-xl bg-slate-950/80 border border-teal-400/30 space-y-1">
+              <div className="flex items-center gap-1.5">
+                <span className="w-2.5 h-2.5 rounded-full bg-[#7EC2AC]"></span>
+                <strong className="text-teal-200 font-bold">3. Portfolio / Investment</strong>
+              </div>
+              <p className="text-slate-400 text-[11px]">Imbal hasil dari pertumbuhan aset modal (Dividen Saham, Bunga Deposito, Gain Reksadana/Saham, Kupon Obligasi/ORI).</p>
+              <p className="text-teal-300/90 text-[10.5px] font-semibold pt-0.5">💡 Hasil dari membiarkan uang bekerja untuk Anda.</p>
+            </div>
+          </div>
+        </div>
+
         <div className="flex flex-col sm:flex-row items-center gap-3">
           <div className="relative flex-1 w-full">
             <svg className="absolute left-3.5 top-1/2 -translate-y-1/2" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#94A3B8" strokeWidth="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
@@ -2968,6 +3151,57 @@ export default function Home({ initialView = 'landing' }) {
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
             <h1 className="font-display text-xl font-bold text-white">Dana Alokasi & Target Saving</h1>
+            <p className="text-[13px] text-slate-400">Dana Darurat, Asuransi, Investasi, dan Cadangan Likuiditas</p>
+          </div>
+          <button data-add="allocation" className="bg-gradient-to-r from-teal-500 to-emerald-500 hover:from-teal-400 hover:to-emerald-400 text-slate-950 text-sm font-bold rounded-xl px-4.5 h-10 shadow-lg shadow-teal-500/20">+ Catat Alokasi</button>
+        </div>
+
+        {/* Panduan Alokasi & Piramida Perencanaan */}
+        <div className="bg-slate-900/90 border border-slate-800 rounded-2xl p-4 space-y-2.5 backdrop-blur-md shadow-lg">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <div className="w-6.5 h-6.5 rounded-lg bg-amber-500/20 border border-amber-500/30 flex items-center justify-center text-amber-400 shrink-0">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/></svg>
+              </div>
+              <h3 className="font-display font-bold text-xs sm:text-sm text-white">Panduan Alokasi &amp; Piramida Perencanaan Finansial</h3>
+            </div>
+            <span className="text-[11px] text-slate-400 font-medium hidden sm:inline">Fondasi Finansial Sehat</span>
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2.5 text-xs">
+            <div className="p-3 rounded-xl bg-slate-950/80 border border-teal-500/30 space-y-1">
+              <div className="flex items-center gap-1.5">
+                <span className="w-2.5 h-2.5 rounded-full bg-[#1F6F5C]"></span>
+                <strong className="text-teal-300 font-bold">1. Dana Darurat</strong>
+              </div>
+              <p className="text-slate-400 text-[11px]">Bantal pengaman cair untuk kondisi krisis (PHK, musibah). Simpan di Reksadana Pasar Uang / Rekening Khusus.</p>
+              <p className="text-teal-400/90 text-[10.5px] font-semibold pt-0.5">💡 Target: 3–6 bulan pengeluaran rutin.</p>
+            </div>
+            <div className="p-3 rounded-xl bg-slate-950/80 border border-emerald-500/30 space-y-1">
+              <div className="flex items-center gap-1.5">
+                <span className="w-2.5 h-2.5 rounded-full bg-[#4FA88E]"></span>
+                <strong className="text-emerald-300 font-bold">2. Asuransi &amp; Proteksi</strong>
+              </div>
+              <p className="text-slate-400 text-[11px]">Pengaman risiko kesehatan/jiwa (BPJS, Asuransi Kesehatan/Jiwa) agar tabungan &amp; aset tidak ludes saat sakit.</p>
+              <p className="text-emerald-400/90 text-[10.5px] font-semibold pt-0.5">💡 Wajib dipunya sebelum investasi tinggi.</p>
+            </div>
+            <div className="p-3 rounded-xl bg-slate-950/80 border border-amber-500/30 space-y-1">
+              <div className="flex items-center gap-1.5">
+                <span className="w-2.5 h-2.5 rounded-full bg-[#DE9518]"></span>
+                <strong className="text-amber-300 font-bold">3. Investasi (Growth)</strong>
+              </div>
+              <p className="text-slate-400 text-[11px]">Alokasi jangka panjang lawan inflasi (Saham, Reksadana, Obligasi, Emas) untuk kebebasan finansial.</p>
+              <p className="text-amber-400/90 text-[10.5px] font-semibold pt-0.5">💡 Lakukan rutin tiap bulan (DCA).</p>
+            </div>
+            <div className="p-3 rounded-xl bg-slate-950/80 border border-rose-500/30 space-y-1">
+              <div className="flex items-center gap-1.5">
+                <span className="w-2.5 h-2.5 rounded-full bg-[#B8471F]"></span>
+                <strong className="text-rose-300 font-bold">4. Cadangan &amp; Target</strong>
+              </div>
+              <p className="text-slate-400 text-[11px]">Tabungan target khusus jangka pendek/menengah (Dana Liburan, DP Rumah/Motor, Hari Raya, Gadget).</p>
+              <p className="text-rose-400/90 text-[10.5px] font-semibold pt-0.5">💡 Pisahkan agar tak terpakai harian.</p>
+            </div>
+          </div>
+        </div>
             <p className="text-[13px] text-slate-400">Dana Darurat, Asuransi, Investasi, dan Cadangan Likuiditas</p>
           </div>
           <button data-add="allocation" className="bg-gradient-to-r from-teal-500 to-emerald-500 hover:from-teal-400 hover:to-emerald-400 text-slate-950 text-sm font-bold rounded-xl px-4.5 h-10 shadow-lg shadow-teal-500/20">+ Catat Alokasi</button>
@@ -3376,6 +3610,7 @@ export default function Home({ initialView = 'landing' }) {
         <option value="berkala">Berkala (di luar siklus bulanan)</option>
         <option value="dinamis">Dinamis / Variabel</option>
       </select>
+      <div id="exp_cat_help" className="mt-2 p-3 rounded-xl bg-slate-950 border border-slate-800 text-[11.5px] text-slate-300"></div>
     </div>
     <div className="grid grid-cols-2 gap-3">
       <div>
@@ -3452,6 +3687,7 @@ export default function Home({ initialView = 'landing' }) {
         <option value="passive">Passive Income</option>
         <option value="portfolio">Portfolio / Investment Income</option>
       </select>
+      <div id="inc_cat_help" className="mt-2 p-3 rounded-xl bg-slate-950 border border-slate-800 text-[11.5px] text-slate-300"></div>
     </div>
     <div>
       <label className="text-[12.5px] font-medium text-slate-300">Kategori</label>
@@ -3505,6 +3741,7 @@ export default function Home({ initialView = 'landing' }) {
         <option value="investasi">Investasi</option>
         <option value="cadangan">Dana Cadangan / Likuiditas Tambahan</option>
       </select>
+      <div id="alc_cat_help" className="mt-2 p-3 rounded-xl bg-slate-950 border border-slate-800 text-[11.5px] text-slate-300"></div>
     </div>
     <div>
       <label className="text-[12.5px] font-medium text-slate-300">Kategori</label>
