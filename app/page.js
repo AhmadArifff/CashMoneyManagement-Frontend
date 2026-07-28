@@ -8,7 +8,8 @@ import { jsPDF } from 'jspdf';
 import LandingPage from './components/LandingPage';
 
 Chart.register(...registerables);
-const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api';
+const rawApiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api';
+const API_BASE = rawApiUrl.replace(/\/health\/?$/i, '').replace(/\/+$/, '');
 
 export default function Home({ initialView = 'landing' }) {
   const [isLandingVisible, setIsLandingVisible] = useState(initialView === 'landing');
