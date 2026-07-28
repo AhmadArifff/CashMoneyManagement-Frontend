@@ -186,6 +186,7 @@ export default function Home({ initialView = 'landing' }) {
     };
 
     const expenseToBackend = (item) => ({
+      name: item.subcategory || item.category || 'Pengeluaran',
       category: item.category,
       subcategory: item.subcategory,
       frequency: item.freq,
@@ -194,50 +195,56 @@ export default function Home({ initialView = 'landing' }) {
       status: item.status,
       is_estimate: !!item.isEstimate,
       note: item.note,
+      notes: item.note,
     });
 
     const expenseFromBackend = (item) => ({
       id: String(item.id),
       category: item.category,
-      subcategory: item.subcategory,
+      subcategory: item.subcategory || item.name || 'Umum',
       freq: item.frequency || '',
       amount: Number(item.amount),
       date: item.date,
       status: item.status,
       isEstimate: !!item.is_estimate,
-      note: item.note || '',
+      note: item.note || item.notes || '',
       attachmentPath: item.attachment_path || '',
       attachmentUrl: item.attachment_url || '',
       createdAt: item.created_at ? Date.parse(item.created_at) : Date.now(),
     });
 
     const incomeToBackend = (item) => ({
+      name: item.subcategory || item.category || 'Pemasukan',
       category: item.category,
       subcategory: item.subcategory,
       amount: item.amount,
       date: item.date,
       note: item.note,
+      notes: item.note,
     });
 
     const incomeFromBackend = (item) => ({
       id: String(item.id),
       category: item.category,
-      subcategory: item.subcategory,
+      subcategory: item.subcategory || item.name || 'Umum',
       amount: Number(item.amount),
       date: item.date,
-      note: item.note || '',
+      note: item.note || item.notes || '',
       attachmentPath: item.attachment_path || '',
       attachmentUrl: item.attachment_url || '',
       createdAt: item.created_at ? Date.parse(item.created_at) : Date.now(),
     });
 
     const allocationToBackend = (item) => ({
+      name: item.subcategory || item.category || 'Dana Alokasi',
       category: item.category,
       subcategory: item.subcategory,
       amount: item.amount,
+      targetAmount: item.targetAmount || 0,
       target_amount: item.targetAmount || 0,
       date: item.date,
       note: item.note,
+      notes: item.note,
     });
 
     const allocationFromBackend = (item) => ({
