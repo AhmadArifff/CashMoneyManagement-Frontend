@@ -575,6 +575,9 @@ export default function Home({ initialView = 'landing' }) {
         this.allocations = new Repo(this.store, 'cashmoney:allocations', 'allocations', allocationToBackend, allocationFromBackend);
         this.expenseFilter = 'all';
         this.incomeFilter = 'all';
+        this.expenseDateSort = 'desc';
+        this.incomeDateSort = 'desc';
+        this.allocationDateSort = 'desc';
         this.charts = {};
         this.confirmCb = null;
         this.initialView = initialView;
@@ -1093,6 +1096,19 @@ export default function Home({ initialView = 'landing' }) {
         document.getElementById('expensePerPage')?.addEventListener('change', () => this.renderExpenseList());
         document.getElementById('incomePerPage')?.addEventListener('change', () => this.renderIncomeList());
         document.getElementById('allocationPerPage')?.addEventListener('change', () => this.renderAllocations());
+
+        document.getElementById('expenseDateSort')?.addEventListener('change', (e) => {
+          this.expenseDateSort = e.target.value;
+          this.renderExpenseList();
+        });
+        document.getElementById('incomeDateSort')?.addEventListener('change', (e) => {
+          this.incomeDateSort = e.target.value;
+          this.renderIncomeList();
+        });
+        document.getElementById('allocationDateSort')?.addEventListener('change', (e) => {
+          this.allocationDateSort = e.target.value;
+          this.renderAllocations();
+        });
       }
       bindRangePicker() {
         const updateLabel = () => {
@@ -2185,7 +2201,8 @@ export default function Home({ initialView = 'landing' }) {
           items = items.filter((x) => (x.subcategory || '').toLowerCase().includes(searchVal) || (x.note || '').toLowerCase().includes(searchVal));
         }
 
-        items = items.slice().sort((a, b) => b.date.localeCompare(a.date));
+        const sortDir = this.expenseDateSort || 'desc';
+        items = items.slice().sort((a, b) => sortDir === 'asc' ? a.date.localeCompare(b.date) : b.date.localeCompare(a.date));
 
         const perPageVal = document.getElementById('expensePerPage')?.value || '20';
         if (perPageVal !== 'all') {
@@ -2266,7 +2283,8 @@ export default function Home({ initialView = 'landing' }) {
           items = items.filter((x) => (x.subcategory || '').toLowerCase().includes(searchVal) || (x.note || '').toLowerCase().includes(searchVal));
         }
 
-        items = items.slice().sort((a, b) => b.date.localeCompare(a.date));
+        const sortDir = this.incomeDateSort || 'desc';
+        items = items.slice().sort((a, b) => sortDir === 'asc' ? a.date.localeCompare(b.date) : b.date.localeCompare(a.date));
 
         const perPageVal = document.getElementById('incomePerPage')?.value || '20';
         if (perPageVal !== 'all') {
@@ -2379,7 +2397,8 @@ export default function Home({ initialView = 'landing' }) {
         }
         const list = document.getElementById('allocationList');
         if (!list) return;
-        let sorted = consolidated.slice().sort((a, b) => b.date.localeCompare(a.date));
+        const sortDir = this.allocationDateSort || 'desc';
+        let sorted = consolidated.slice().sort((a, b) => sortDir === 'asc' ? a.date.localeCompare(b.date) : b.date.localeCompare(a.date));
 
         const perPageVal = document.getElementById('allocationPerPage')?.value || '20';
         if (perPageVal !== 'all') {
@@ -3053,8 +3072,13 @@ export default function Home({ initialView = 'landing' }) {
             <input id="expenseSearch" type="text" placeholder="Cari pengeluaran atau catatan..." className="w-full pl-9 pr-4 h-10 border border-slate-800 rounded-xl text-xs bg-slate-950 text-white placeholder-slate-500 focus:outline-none focus:border-teal-500" />
           </div>
           <div className="flex items-center gap-2 shrink-0 w-full sm:w-auto justify-between sm:justify-end">
-            <span className="text-xs text-slate-400">Tampilkan:</span>
-            <select id="expensePerPage" defaultValue="20" className="h-10 px-3 border border-slate-800 rounded-xl text-xs bg-slate-950 text-slate-200 font-medium">
+            <span className="text-xs text-slate-400">Urut Tanggal:</span>
+            <select id="expenseDateSort" defaultValue="desc" className="h-10 px-3 border border-slate-800 rounded-xl text-xs bg-slate-950 text-slate-200 font-medium focus:outline-none focus:border-teal-500">
+              <option value="desc">Terbaru → Terlama</option>
+              <option value="asc">Terlama → Terbaru</option>
+            </select>
+            <span className="text-xs text-slate-400 ml-1">Tampilkan:</span>
+            <select id="expensePerPage" defaultValue="20" className="h-10 px-3 border border-slate-800 rounded-xl text-xs bg-slate-950 text-slate-200 font-medium focus:outline-none focus:border-teal-500">
               <option value="10">10 data</option>
               <option value="20">20 data</option>
               <option value="50">50 data</option>
@@ -3134,8 +3158,13 @@ export default function Home({ initialView = 'landing' }) {
             <input id="incomeSearch" type="text" placeholder="Cari pemasukan atau catatan..." className="w-full pl-9 pr-4 h-10 border border-slate-800 rounded-xl text-xs bg-slate-950 text-white placeholder-slate-500 focus:outline-none focus:border-teal-500" />
           </div>
           <div className="flex items-center gap-2 shrink-0 w-full sm:w-auto justify-between sm:justify-end">
-            <span className="text-xs text-slate-400">Tampilkan:</span>
-            <select id="incomePerPage" defaultValue="20" className="h-10 px-3 border border-slate-800 rounded-xl text-xs bg-slate-950 text-slate-200 font-medium">
+            <span className="text-xs text-slate-400">Urut Tanggal:</span>
+            <select id="incomeDateSort" defaultValue="desc" className="h-10 px-3 border border-slate-800 rounded-xl text-xs bg-slate-950 text-slate-200 font-medium focus:outline-none focus:border-teal-500">
+              <option value="desc">Terbaru → Terlama</option>
+              <option value="asc">Terlama → Terbaru</option>
+            </select>
+            <span className="text-xs text-slate-400 ml-1">Tampilkan:</span>
+            <select id="incomePerPage" defaultValue="20" className="h-10 px-3 border border-slate-800 rounded-xl text-xs bg-slate-950 text-slate-200 font-medium focus:outline-none focus:border-teal-500">
               <option value="10">10 data</option>
               <option value="20">20 data</option>
               <option value="50">50 data</option>
@@ -3223,8 +3252,13 @@ export default function Home({ initialView = 'landing' }) {
             <input id="allocationSearch" type="text" placeholder="Cari dana alokasi atau catatan..." className="w-full pl-9 pr-4 h-10 border border-slate-800 rounded-xl text-xs bg-slate-950 text-white placeholder-slate-500 focus:outline-none focus:border-teal-500" />
           </div>
           <div className="flex items-center gap-2 shrink-0 w-full sm:w-auto justify-between sm:justify-end">
-            <span className="text-xs text-slate-400">Tampilkan:</span>
-            <select id="allocationPerPage" defaultValue="20" className="h-10 px-3 border border-slate-800 rounded-xl text-xs bg-slate-950 text-slate-200 font-medium">
+            <span className="text-xs text-slate-400">Urut Tanggal:</span>
+            <select id="allocationDateSort" defaultValue="desc" className="h-10 px-3 border border-slate-800 rounded-xl text-xs bg-slate-950 text-slate-200 font-medium focus:outline-none focus:border-teal-500">
+              <option value="desc">Terbaru → Terlama</option>
+              <option value="asc">Terlama → Terbaru</option>
+            </select>
+            <span className="text-xs text-slate-400 ml-1">Tampilkan:</span>
+            <select id="allocationPerPage" defaultValue="20" className="h-10 px-3 border border-slate-800 rounded-xl text-xs bg-slate-950 text-slate-200 font-medium focus:outline-none focus:border-teal-500">
               <option value="10">10 data</option>
               <option value="20">20 data</option>
               <option value="50">50 data</option>
