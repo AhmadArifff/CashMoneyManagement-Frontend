@@ -1861,13 +1861,13 @@ export default function Home({ initialView = 'landing' }) {
         const badge = document.getElementById('balanceBadge');
         if (card && badge) {
           if (balance < 0) {
-            card.className = 'rounded-2xl shadow-xl border p-4.5 bg-gradient-to-br from-rose-950/80 via-slate-900 to-slate-900 border-rose-500/50 flex items-center justify-between transition';
+            card.className = 'bg-gradient-to-br from-rose-950/80 via-slate-900 to-slate-900 backdrop-blur-md rounded-2xl border border-rose-500/50 p-5.5 md:p-6 shadow-xl hover:border-rose-500/70 transition flex items-center justify-between min-h-[125px] md:min-h-[140px]';
             badge.textContent = 'DEFISIT';
-            badge.className = 'text-[10px] font-extrabold bg-rose-500/20 text-rose-300 border border-rose-500/40 rounded-full px-2 py-0.5';
+            badge.className = 'text-[10px] font-extrabold bg-rose-500/20 text-rose-300 border border-rose-500/40 rounded-full px-2.5 py-0.5 inline-flex items-center shrink-0';
           } else {
-            card.className = 'rounded-2xl shadow-xl border p-4.5 bg-gradient-to-br from-teal-950/80 via-slate-900 to-slate-900 border-teal-500/50 flex items-center justify-between transition';
+            card.className = 'bg-gradient-to-br from-teal-950/80 via-slate-900 to-slate-900 backdrop-blur-md rounded-2xl border border-teal-500/50 p-5.5 md:p-6 shadow-xl hover:border-teal-500/70 transition flex items-center justify-between min-h-[125px] md:min-h-[140px]';
             badge.textContent = 'SURPLUS';
-            badge.className = 'text-[10px] font-extrabold bg-teal-500/20 text-teal-300 border border-teal-500/40 rounded-full px-2 py-0.5';
+            badge.className = 'text-[10px] font-extrabold bg-teal-500/20 text-teal-300 border border-teal-500/40 rounded-full px-2.5 py-0.5 inline-flex items-center shrink-0';
           }
         }
         const unpaid = this.expenses.items.filter((x) => (x.category === 'tetap' || x.category === 'berkala') && x.status === 'unpaid' && !x.isEstimate).sort((a, b) => a.date.localeCompare(b.date));
@@ -2250,7 +2250,15 @@ export default function Home({ initialView = 'landing' }) {
         list.querySelectorAll('[data-edit]').forEach((el) => el.addEventListener('click', () => this.openEntryForm('expense', el.dataset.edit)));
       }
       renderIncomeList() {
-        let items = this.incomes.inRange(this.range.start, this.range.end);
+        const actualIncomes = this.incomes.inRange(this.range.start, this.range.end);
+        const elEarned = document.getElementById('totEarned');
+        if (elEarned) elEarned.textContent = U.fmtIDR(actualIncomes.filter((x) => x.category === 'earned').reduce((s, x) => s + Number(x.amount), 0));
+        const elPassive = document.getElementById('totPassive');
+        if (elPassive) elPassive.textContent = U.fmtIDR(actualIncomes.filter((x) => x.category === 'passive').reduce((s, x) => s + Number(x.amount), 0));
+        const elPortfolio = document.getElementById('totPortfolio');
+        if (elPortfolio) elPortfolio.textContent = U.fmtIDR(actualIncomes.filter((x) => x.category === 'portfolio').reduce((s, x) => s + Number(x.amount), 0));
+
+        let items = actualIncomes;
         if (this.incomeFilter !== 'all') items = items.filter((x) => x.category === this.incomeFilter);
 
         const searchVal = (document.getElementById('incomeSearch')?.value || '').trim().toLowerCase();
@@ -2939,13 +2947,13 @@ export default function Home({ initialView = 'landing' }) {
             </div>
           </div>
 
-          <div id="sumBalanceCard" className="rounded-2xl shadow-xl border p-5.5 md:p-6 bg-gradient-to-br from-teal-950 via-slate-900 to-slate-900 border-teal-500/50 flex items-center justify-between min-h-[125px] md:min-h-[140px]">
+          <div id="sumBalanceCard" className="bg-gradient-to-br from-teal-950/80 via-slate-900 to-slate-900 backdrop-blur-md rounded-2xl border border-teal-500/50 p-5.5 md:p-6 shadow-xl hover:border-teal-500/70 transition flex items-center justify-between min-h-[125px] md:min-h-[140px]">
             <div className="space-y-1.5 min-w-0 flex-1">
-              <div className="flex flex-wrap items-center gap-2">
-                <p className="text-xs md:text-sm text-teal-300 font-semibold">Saldo Bersih</p>
-                <span id="balanceBadge" className="text-[10px] font-extrabold bg-teal-500/20 text-teal-300 border border-teal-500/40 rounded-full px-2.5 py-0.5">SURPLUS</span>
+              <div className="flex items-center justify-between gap-2 pr-2">
+                <p className="text-xs md:text-sm font-semibold tracking-wide text-teal-300">Saldo Bersih</p>
+                <span id="balanceBadge" className="text-[10px] font-extrabold bg-teal-500/20 text-teal-300 border border-teal-500/40 rounded-full px-2.5 py-0.5 inline-flex items-center shrink-0">SURPLUS</span>
               </div>
-              <p id="sumBalance" className="font-mono font-extrabold text-2xl sm:text-3xl text-white truncate mt-1">Rp 0</p>
+              <p id="sumBalance" className="font-mono font-extrabold text-2xl sm:text-3xl text-white truncate">Rp 0</p>
             </div>
             <div className="w-12 h-12 md:w-13 md:h-13 rounded-2xl bg-teal-500/20 border border-teal-500/30 flex items-center justify-center text-teal-300 shrink-0 ml-3 shadow-md">
               <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
@@ -3141,6 +3149,12 @@ export default function Home({ initialView = 'landing' }) {
           <button data-cat="earned" className="tab-pill px-3.5 h-9 rounded-full text-[13px] font-medium border border-slate-700/80 bg-slate-900 text-slate-300">Earned / Active</button>
           <button data-cat="passive" className="tab-pill px-3.5 h-9 rounded-full text-[13px] font-medium border border-slate-700/80 bg-slate-900 text-slate-300">Passive</button>
           <button data-cat="portfolio" className="tab-pill px-3.5 h-9 rounded-full text-[13px] font-medium border border-slate-700/80 bg-slate-900 text-slate-300">Portfolio / Investment</button>
+        </div>
+
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+          <div className="bg-slate-900/80 backdrop-blur-md rounded-xl border border-slate-800/90 p-3.5"><p className="text-[11px] text-slate-400">Earned / Active Income</p><p id="totEarned" className="font-mono font-bold text-teal-400 text-base mt-0.5">Rp 0</p></div>
+          <div className="bg-slate-900/80 backdrop-blur-md rounded-xl border border-slate-800/90 p-3.5"><p className="text-[11px] text-slate-400">Passive Income</p><p id="totPassive" className="font-mono font-bold text-emerald-400 text-base mt-0.5">Rp 0</p></div>
+          <div className="bg-slate-900/80 backdrop-blur-md rounded-xl border border-slate-800/90 p-3.5"><p className="text-[11px] text-slate-400">Portfolio / Investment Income</p><p id="totPortfolio" className="font-mono font-bold text-cyan-400 text-base mt-0.5">Rp 0</p></div>
         </div>
 
         <div id="incomeList" className="space-y-2"></div>
