@@ -2761,18 +2761,48 @@ export default function Home({ initialView = 'landing' }) {
             },
           });
         }
-        const rowsHtml = (defs, items) =>
-          Object.keys(defs)
-            .map((k) => {
-              const sub = items.filter((x) => x.category === k);
-              const tot = sub.reduce((s, x) => s + Number(x.amount), 0);
-              if (!tot) return '';
-              return `<tr class="border-b border-slate-800"><td class="py-1.5 pr-2 text-slate-300" style="color:${defs[k].color}">● ${defs[k].label}</td><td class="py-1.5 text-right font-mono font-bold text-white">${U.fmtIDR(tot)}</td></tr>`;
-            })
-            .join('') || `<tr><td class="py-3 text-slate-500 text-center" colspan="2">Tidak ada data</td></tr>`;
-        document.getElementById('repExpenseTable').innerHTML = rowsHtml(EXPENSE_CATS, exp);
-        document.getElementById('repIncomeTable').innerHTML = rowsHtml(INCOME_CATS, inc);
-        document.getElementById('repAllocationTable').innerHTML = rowsHtml(ALLOCATION_CATS, alc);
+        const rowsHtml = (defs, items, mainTot, colorClass) => {
+          const validKeys = Object.keys(defs).filter((k) => {
+            const sub = items.filter((x) => x.category === k);
+            return sub.reduce((s, x) => s + Number(x.amount), 0) > 0;
+          });
+
+          if (!validKeys.length) {
+            return `<tr><td class="py-5 text-slate-500 text-center text-xs font-medium" colspan="2">Belum ada data pada periode ini.</td></tr>`;
+          }
+
+          return validKeys.map((k) => {
+            const sub = items.filter((x) => x.category === k);
+            const tot = sub.reduce((s, x) => s + Number(x.amount), 0);
+            const pct = mainTot > 0 ? Math.round((tot / mainTot) * 100) : 0;
+            const catColor = defs[k].color || '#38BDF8';
+
+            return `
+              <tr class="hover:bg-slate-900/60 transition group border-b border-slate-800/60 last:border-b-0">
+                <td class="py-2.5 pr-3">
+                  <div class="flex items-center gap-2">
+                    <span class="w-2.5 h-2.5 rounded-full shrink-0 shadow-sm" style="background:${catColor}"></span>
+                    <span class="font-semibold text-white text-xs">${defs[k].label}</span>
+                  </div>
+                  <div class="w-full bg-slate-800/80 rounded-full h-1.5 mt-1.5 overflow-hidden">
+                    <div class="h-full rounded-full transition-all duration-500" style="width:${pct}%; background:${catColor}"></div>
+                  </div>
+                </td>
+                <td class="py-2.5 text-right align-top whitespace-nowrap">
+                  <span class="font-mono font-extrabold ${colorClass} text-xs sm:text-sm block">${U.fmtIDR(tot)}</span>
+                  <span class="text-[10px] text-slate-400 font-medium">${pct}% dari total</span>
+                </td>
+              </tr>
+            `;
+          }).join('');
+        };
+
+        const expEl = document.getElementById('repExpenseTable');
+        if (expEl) expEl.innerHTML = rowsHtml(EXPENSE_CATS, exp, totalExp, 'text-rose-400');
+        const incEl = document.getElementById('repIncomeTable');
+        if (incEl) incEl.innerHTML = rowsHtml(INCOME_CATS, inc, totalInc, 'text-emerald-400');
+        const alcEl = document.getElementById('repAllocationTable');
+        if (alcEl) alcEl.innerHTML = rowsHtml(ALLOCATION_CATS, alc, totalAlc, 'text-amber-400');
 
         const health = this.generateFinancialInsights({ exp, inc, alc, totalInc, totalExp, totalAlc, balance });
         const healthContainer = document.getElementById('reportHealthContainer');
@@ -2829,9 +2859,38 @@ export default function Home({ initialView = 'landing' }) {
             </div>`;
         }
 
-        document.getElementById('repSuggestions').innerHTML = health.insights
-          .map((ins) => `<li class="leading-relaxed"><strong class="text-white">${ins.icon} ${ins.title}:</strong> ${ins.text}</li>`)
-          .join('');
+        const iconBgMap = {
+          success: 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30',
+          warning: 'bg-amber-500/20 text-amber-400 border border-amber-500/30',
+          danger: 'bg-rose-500/20 text-rose-400 border border-rose-500/30',
+          info: 'bg-teal-500/20 text-teal-400 border border-teal-500/30'
+        };
+        const cardBorderMap = {
+          success: 'border border-emerald-500/30 bg-slate-950/80 hover:border-emerald-500/50',
+          warning: 'border border-amber-500/30 bg-slate-950/80 hover:border-amber-500/50',
+          danger: 'border border-rose-500/30 bg-slate-950/80 hover:border-rose-500/50',
+          info: 'border border-teal-500/30 bg-slate-950/80 hover:border-teal-500/50'
+        };
+
+        const sugEl = document.getElementById('repSuggestions');
+        if (sugEl) {
+          sugEl.className = 'grid grid-cols-1 md:grid-cols-2 gap-3.5';
+          sugEl.innerHTML = health.insights
+            .map((ins) => `
+              <div class="rounded-2xl ${cardBorderMap[ins.type] || cardBorderMap.info} p-4 shadow-lg transition flex items-start gap-3.5">
+                <div class="w-9 h-9 rounded-xl ${iconBgMap[ins.type] || iconBgMap.info} flex items-center justify-center shrink-0 mt-0.5 shadow-md">
+                  ${ins.icon}
+                </div>
+                <div class="flex-1 min-w-0">
+                  <h4 class="font-display font-bold text-sm text-white flex items-center gap-2">
+                    ${ins.title}
+                  </h4>
+                  <p class="text-xs text-slate-300 leading-relaxed mt-1">${ins.text}</p>
+                </div>
+              </div>
+            `)
+            .join('');
+        }
       }
       generateFinancialInsights({ exp, inc, alc, totalInc, totalExp, totalAlc, balance }) {
         let score = 70;
@@ -3646,23 +3705,57 @@ export default function Home({ initialView = 'landing' }) {
           </div>
 
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
-            <div className="overflow-x-auto">
-              <h3 className="font-display font-bold text-[14px] text-white mb-2">Rincian Pengeluaran</h3>
-              <table className="w-full text-[12.5px] min-w-[260px]"><tbody id="repExpenseTable"></tbody></table>
+            <div className="bg-slate-950/80 p-4 sm:p-5 rounded-2xl border border-slate-800 shadow-xl space-y-3">
+              <div className="flex items-center justify-between border-b border-slate-800/80 pb-2.5">
+                <h3 className="font-display font-bold text-sm text-white flex items-center gap-2">
+                  <span className="w-2.5 h-2.5 rounded-full bg-rose-500"></span>
+                  Rincian Pengeluaran
+                </h3>
+                <span className="text-[11px] font-bold text-rose-400">Total Kategori</span>
+              </div>
+              <div className="overflow-x-auto">
+                <table className="w-full text-xs min-w-[240px]"><tbody id="repExpenseTable"></tbody></table>
+              </div>
             </div>
-            <div className="overflow-x-auto">
-              <h3 className="font-display font-bold text-[14px] text-white mb-2">Rincian Pemasukan</h3>
-              <table className="w-full text-[12.5px] min-w-[260px]"><tbody id="repIncomeTable"></tbody></table>
+
+            <div className="bg-slate-950/80 p-4 sm:p-5 rounded-2xl border border-slate-800 shadow-xl space-y-3">
+              <div className="flex items-center justify-between border-b border-slate-800/80 pb-2.5">
+                <h3 className="font-display font-bold text-sm text-white flex items-center gap-2">
+                  <span className="w-2.5 h-2.5 rounded-full bg-emerald-500"></span>
+                  Rincian Pemasukan
+                </h3>
+                <span className="text-[11px] font-bold text-emerald-400">Total Sumber</span>
+              </div>
+              <div className="overflow-x-auto">
+                <table className="w-full text-xs min-w-[240px]"><tbody id="repIncomeTable"></tbody></table>
+              </div>
             </div>
-            <div className="overflow-x-auto">
-              <h3 className="font-display font-bold text-[14px] text-white mb-2">Rincian Alokasi Dana</h3>
-              <table className="w-full text-[12.5px] min-w-[260px]"><tbody id="repAllocationTable"></tbody></table>
+
+            <div className="bg-slate-950/80 p-4 sm:p-5 rounded-2xl border border-slate-800 shadow-xl space-y-3">
+              <div className="flex items-center justify-between border-b border-slate-800/80 pb-2.5">
+                <h3 className="font-display font-bold text-sm text-white flex items-center gap-2">
+                  <span className="w-2.5 h-2.5 rounded-full bg-amber-500"></span>
+                  Rincian Alokasi Dana
+                </h3>
+                <span className="text-[11px] font-bold text-amber-400">Total Alokasi</span>
+              </div>
+              <div className="overflow-x-auto">
+                <table className="w-full text-xs min-w-[240px]"><tbody id="repAllocationTable"></tbody></table>
+              </div>
             </div>
           </div>
 
-          <div className="rounded-xl bg-teal-950/40 border border-teal-500/30 p-4.5 space-y-2">
-            <h3 className="font-display font-bold text-[14px] text-teal-300">Ringkasan & Saran Perencanaan Finansial</h3>
-            <ul id="repSuggestions" className="space-y-1.5 text-[13px] text-slate-300 list-disc list-inside"></ul>
+          <div className="rounded-2xl bg-slate-950/80 border border-teal-500/30 p-5 space-y-3.5 shadow-xl">
+            <div className="flex items-center gap-2.5 border-b border-slate-800/80 pb-3">
+              <div className="w-8 h-8 rounded-xl bg-teal-500/20 border border-teal-500/30 flex items-center justify-center text-teal-300">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2"><path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
+              </div>
+              <div>
+                <h3 className="font-display font-bold text-base text-white">Ringkasan &amp; Saran Perencanaan Finansial</h3>
+                <p className="text-xs text-slate-400">Rekomendasi otomatis sistem berdasarkan analisis rasio pengeluaran &amp; tabungan Anda</p>
+              </div>
+            </div>
+            <div id="repSuggestions" className="grid grid-cols-1 md:grid-cols-2 gap-3.5"></div>
           </div>
         </div>
       </section>
