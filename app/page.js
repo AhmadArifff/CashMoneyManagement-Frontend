@@ -2700,11 +2700,37 @@ export default function Home({ initialView = 'landing' }) {
         const totalExp = Aggregator.total(exp);
         const totalAlc = Aggregator.total(alc);
         const balance = totalInc - totalExp - totalAlc;
+
+        const savingRatio = totalInc > 0 ? (totalAlc / totalInc) * 100 : 0;
+        const expRatio = totalInc > 0 ? (totalExp / totalInc) * 100 : 0;
+        const isSurplus = balance >= 0;
+
         document.getElementById('reportPeriod').innerHTML = `Periode Laporan<br>${U.fmtDateID(this.range.start)} – ${U.fmtDateID(this.range.end)}`;
         document.getElementById('repIncome').textContent = U.fmtIDR(totalInc);
         document.getElementById('repExpense').textContent = U.fmtIDR(totalExp);
         document.getElementById('repAllocation').textContent = U.fmtIDR(totalAlc);
         document.getElementById('repBalance').textContent = U.fmtIDR(balance);
+
+        const balBadge = document.getElementById('repBalanceBadge');
+        if (balBadge) {
+          balBadge.textContent = isSurplus ? 'SURPLUS' : 'DEFISIT';
+          balBadge.className = isSurplus
+            ? 'text-[10px] font-extrabold uppercase px-2.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/30'
+            : 'text-[10px] font-extrabold uppercase px-2.5 py-0.5 rounded-full bg-rose-500/20 text-rose-300 border border-rose-500/30';
+        }
+
+        const elSavRatio = document.getElementById('repSavingRatio');
+        if (elSavRatio) elSavRatio.textContent = `${Math.round(savingRatio)}%`;
+
+        const elExpRatio = document.getElementById('repExpenseRatio');
+        if (elExpRatio) elExpRatio.textContent = `${Math.round(expRatio)}%`;
+
+        const avgMonthlyExp = (Aggregator.total(this.expenses.items.filter((x) => !x.isEstimate)) / Math.max(1, new Set(this.expenses.items.map((x) => U.monthKey(x.date))).size)) || 0;
+        const daruratTotal = this.allocations.items.filter((x) => x.category === 'darurat').reduce((s, x) => s + Number(x.amount || 0), 0);
+        const monthsCovered = avgMonthlyExp > 0 ? (daruratTotal / avgMonthlyExp).toFixed(1) : '0';
+
+        const elCushion = document.getElementById('repCushion');
+        if (elCushion) elCushion.textContent = `${monthsCovered} bln`;
         this.renderDonut('chartRepExpense', Aggregator.byCategory(exp), EXPENSE_CATS);
         this.renderDonut('chartRepIncome', Aggregator.byCategory(inc), INCOME_CATS);
         const endD = U.parseD(this.range.end);
@@ -3525,11 +3551,80 @@ export default function Home({ initialView = 'landing' }) {
             <p id="reportPeriod" className="font-mono text-[12.5px] text-slate-400 text-right"></p>
           </div>
 
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-            <div className="rounded-xl border border-slate-800 bg-slate-950/60 p-3.5"><p className="text-[11px] text-slate-400">Total Pemasukan</p><p id="repIncome" className="font-mono font-bold text-emerald-400 text-lg mt-0.5">Rp 0</p></div>
-            <div className="rounded-xl border border-slate-800 bg-slate-950/60 p-3.5"><p className="text-[11px] text-slate-400">Total Pengeluaran</p><p id="repExpense" className="font-mono font-bold text-rose-400 text-lg mt-0.5">Rp 0</p></div>
-            <div className="rounded-xl border border-slate-800 bg-slate-950/60 p-3.5"><p className="text-[11px] text-slate-400">Total Alokasi</p><p id="repAllocation" className="font-mono font-bold text-amber-400 text-lg mt-0.5">Rp 0</p></div>
-            <div className="rounded-xl border border-teal-500/40 p-3.5 bg-gradient-to-r from-teal-900 to-slate-900"><p className="text-[11px] text-teal-300 font-medium">Saldo Akhir</p><p id="repBalance" className="font-mono font-bold text-white text-lg mt-0.5">Rp 0</p></div>
+          {/* Executive Financial Summary Grid */}
+          <div className="space-y-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3.5">
+              {/* Total Pemasukan Card */}
+              <div className="rounded-2xl border border-emerald-500/30 bg-slate-950/80 p-4 sm:p-5 flex flex-col justify-between shadow-lg shadow-emerald-950/20 hover:border-emerald-500/50 transition">
+                <div className="flex items-center justify-between">
+                  <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Total Pemasukan</span>
+                  <div className="w-8 h-8 rounded-xl bg-emerald-500/20 border border-emerald-500/30 flex items-center justify-center text-emerald-400">
+                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M12 19V5M5 12l7-7 7 7"/></svg>
+                  </div>
+                </div>
+                <div className="mt-2.5">
+                  <p id="repIncome" className="font-mono font-extrabold text-emerald-400 text-lg sm:text-xl tracking-tight">Rp 0</p>
+                  <p className="text-[10.5px] text-slate-400 font-medium mt-1">Earned, Passive &amp; Investment</p>
+                </div>
+              </div>
+
+              {/* Total Pengeluaran Card */}
+              <div className="rounded-2xl border border-rose-500/30 bg-slate-950/80 p-4 sm:p-5 flex flex-col justify-between shadow-lg shadow-rose-950/20 hover:border-rose-500/50 transition">
+                <div className="flex items-center justify-between">
+                  <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Total Pengeluaran</span>
+                  <div className="w-8 h-8 rounded-xl bg-rose-500/20 border border-rose-500/30 flex items-center justify-center text-rose-400">
+                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M12 5v14M5 12l7 7 7-7"/></svg>
+                  </div>
+                </div>
+                <div className="mt-2.5">
+                  <p id="repExpense" className="font-mono font-extrabold text-rose-400 text-lg sm:text-xl tracking-tight">Rp 0</p>
+                  <p className="text-[10.5px] text-slate-400 font-medium mt-1">Tetap, Berkala &amp; Dinamis</p>
+                </div>
+              </div>
+
+              {/* Total Alokasi Card */}
+              <div className="rounded-2xl border border-amber-500/30 bg-slate-950/80 p-4 sm:p-5 flex flex-col justify-between shadow-lg shadow-amber-950/20 hover:border-amber-500/50 transition">
+                <div className="flex items-center justify-between">
+                  <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Total Alokasi &amp; Tabungan</span>
+                  <div className="w-8 h-8 rounded-xl bg-amber-500/20 border border-amber-500/30 flex items-center justify-center text-amber-400">
+                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
+                  </div>
+                </div>
+                <div className="mt-2.5">
+                  <p id="repAllocation" className="font-mono font-extrabold text-amber-400 text-lg sm:text-xl tracking-tight">Rp 0</p>
+                  <p className="text-[10.5px] text-slate-400 font-medium mt-1">Darurat, Asuransi &amp; Investasi</p>
+                </div>
+              </div>
+
+              {/* Saldo Bersih Card */}
+              <div className="rounded-2xl border border-teal-500/40 bg-gradient-to-br from-teal-950/90 via-slate-900 to-emerald-950/80 p-4 sm:p-5 flex flex-col justify-between shadow-xl shadow-teal-950/40 relative overflow-hidden">
+                <div className="absolute -right-8 -bottom-8 w-24 h-24 bg-teal-500/10 rounded-full blur-2xl pointer-events-none"></div>
+                <div className="flex items-center justify-between relative z-10">
+                  <span className="text-[11px] font-bold text-teal-300 uppercase tracking-wider">Saldo Bersih</span>
+                  <span id="repBalanceBadge" className="text-[10px] font-extrabold uppercase px-2.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">SURPLUS</span>
+                </div>
+                <div className="mt-2.5 relative z-10">
+                  <p id="repBalance" className="font-mono font-extrabold text-white text-xl sm:text-2xl tracking-tight">Rp 0</p>
+                  <p className="text-[10.5px] text-slate-400 font-medium mt-1">Sisa dana arus kas bersih</p>
+                </div>
+              </div>
+            </div>
+
+            {/* Quick KPI Stats Bar */}
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 bg-slate-950/90 border border-slate-800 rounded-xl p-3 text-xs">
+              <div className="flex items-center justify-between px-2">
+                <span className="text-slate-400">Rasio Tabungan:</span>
+                <span id="repSavingRatio" className="font-mono font-bold text-teal-300">0%</span>
+              </div>
+              <div className="flex items-center justify-between px-2 border-t sm:border-t-0 sm:border-l border-slate-800 pt-2 sm:pt-0">
+                <span className="text-slate-400">Rasio Pengeluaran:</span>
+                <span id="repExpenseRatio" className="font-mono font-bold text-amber-300">0%</span>
+              </div>
+              <div className="flex items-center justify-between px-2 border-t sm:border-t-0 sm:border-l border-slate-800 pt-2 sm:pt-0">
+                <span className="text-slate-400">Daya Tahan Dana Darurat:</span>
+                <span id="repCushion" className="font-mono font-bold text-emerald-300">0 bln</span>
+              </div>
+            </div>
           </div>
 
           <div id="reportHealthContainer" className="space-y-4"></div>
