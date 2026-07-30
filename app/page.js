@@ -149,7 +149,7 @@ export default function Home({ initialView = 'landing' }) {
         color: '#1F6F5C',
         description: 'Pengeluaran rutin bulanan yang nilainya cenderung konstan dan WAJIB dibayar setiap periode. Memiliki sanksi/denda jika terlambat.',
         examples: 'Sewa/KPR Rumah, Tagihan Listrik/Air/Wi-Fi, Cicilan Kendaraan, SPP Sekolah, Premi Asuransi.',
-        tips: '💡 Porsi ideal: Maksimal 30% - 40% dari total penghasilan bulanan Anda.',
+        tips: 'Porsi ideal: Maksimal 30% - 40% dari total penghasilan bulanan Anda.',
         freq: [['harian', 'Harian'], ['mingguan', 'Mingguan'], ['bulanan', 'Bulanan']],
         subs: ['Sewa/Kontrakan Rumah', 'Tagihan Internet', 'Tagihan Listrik', 'Tagihan Air', 'Cicilan/KPR', 'Premi Asuransi', 'Langganan Digital', 'Lainnya'],
       },
@@ -158,7 +158,7 @@ export default function Home({ initialView = 'landing' }) {
         color: '#DE9518',
         description: 'Pengeluaran yang tidak terjadi setiap bulan, tetapi waktunya terprediksi (misal: per 3 bulan, 6 bulan, atau tahunan).',
         examples: 'Pajak STNK / Kendaraan, Servis Besar Mobil/Motor, Pajak PBB, Zakat Maal / Sumbangan Tahunan.',
-        tips: '💡 Tips Finansial: Sisihkan dana tiap bulan agar tidak kaget saat jatuh tempo bayar.',
+        tips: 'Tips Finansial: Sisihkan dana tiap bulan agar tidak kaget saat jatuh tempo bayar.',
         freq: [['3bulan', 'Tiap 3 Bulan'], ['6bulan', 'Tiap 6 Bulan'], ['tahunan', 'Tahunan']],
         subs: ['Pajak Kendaraan', 'Servis Besar Kendaraan', 'Perpanjangan STNK', 'Zakat / Sumbangan Tahunan', 'Lainnya'],
       },
@@ -167,7 +167,7 @@ export default function Home({ initialView = 'landing' }) {
         color: '#B8471F',
         description: 'Pengeluaran harian atau fleksibel yang jumlahnya dapat berubah-ubah dan relatif bisa dikontrol sesuai gaya hidup.',
         examples: 'Makan & Minum di luar, Transportasi/BBM, Belanja Hobi, Hiburan/Nonton, Belanja Pakaian, Jajan.',
-        tips: '💡 Tips Finansial: Pos terbaik untuk dihemat jika ingin menaikkan kapasitas alokasi tabungan & investasi.',
+        tips: 'Tips Finansial: Pos terbaik untuk dihemat jika ingin menaikkan kapasitas alokasi tabungan & investasi.',
         freq: [['harian', 'Harian'], ['mingguan', 'Mingguan'], ['bulanan', 'Bulanan']],
         subs: ['Makan & Minum', 'Transportasi / BBM', 'Rekreasi / Hiburan', 'Belanja Kebutuhan', 'Kesehatan', 'Lainnya'],
       },
@@ -179,7 +179,7 @@ export default function Home({ initialView = 'landing' }) {
         color: '#1F6F5C',
         description: 'Penghasilan utama dari pertukaran waktu & tenaga secara langsung (bekerja/berjasa).',
         examples: 'Gaji Bulanan, Upah Harian, Bonus Kinerja, Komisi Penjualan, Project Freelance.',
-        tips: '💡 Sumber modal awal untuk menopang biaya hidup & membangun aset.',
+        tips: 'Sumber modal awal untuk menopang biaya hidup & membangun aset.',
         subs: ['Gaji Bulanan', 'Upah Harian', 'Bonus', 'Komisi', 'Pekerjaan Lepas', 'Lainnya'],
       },
       passive: {
@@ -187,7 +187,7 @@ export default function Home({ initialView = 'landing' }) {
         color: '#4FA88E',
         description: 'Penghasilan yang terus mengalir secara otomatis dari sistem atau aset tanpa kehadiran fisik harian.',
         examples: 'Hasil Sewa Kontrakan/Kosan, Royalti Karya/Buku, Lisensi Software, Bisnis Berjalan via Manager.',
-        tips: '💡 Target kebebasan finansial! Semakin besar pasif income, semakin mandiri keuangan Anda.',
+        tips: 'Target kebebasan finansial! Semakin besar pasif income, semakin mandiri keuangan Anda.',
         subs: ['Sewa Properti', 'Royalti', 'Afiliasi', 'Lainnya'],
       },
       portfolio: {
@@ -195,7 +195,7 @@ export default function Home({ initialView = 'landing' }) {
         color: '#7EC2AC',
         description: 'Penghasilan dari pertumbuhan dan imbal hasil aset keuangan/pasar modal.',
         examples: 'Dividen Saham, Bunga Deposito, Gain Reksadana, Kupon Obligasi/ORISURI.',
-        tips: '💡 Hasil dari membiarkan uang bekerja untuk Anda (Money works for you).',
+        tips: 'Hasil dari membiarkan uang bekerja untuk Anda (Money works for you).',
         subs: ['Dividen Saham', 'Bunga Deposito', 'Capital Gain', 'Reksadana', 'Lainnya'],
       },
     };
@@ -206,7 +206,7 @@ export default function Home({ initialView = 'landing' }) {
         color: '#1F6F5C',
         description: 'Bantal pengaman finansial cair untuk menghadapi krisis darurat (PHK, sakit mendadak, musibah).',
         examples: 'Tabungan khusus di rekening terpisah / Reksadana Pasar Uang.',
-        tips: '💡 Target Ideal: 3–6 bulan pengeluaran (lajang) atau 6–12 bulan pengeluaran (berkeluarga).',
+        tips: 'Target Ideal: 3–6 bulan pengeluaran (lajang) atau 6–12 bulan pengeluaran (berkeluarga).',
         subs: ['Dana Darurat'],
       },
       asuransi: {
@@ -214,7 +214,7 @@ export default function Home({ initialView = 'landing' }) {
         color: '#4FA88E',
         description: 'Alokasi pengaman agar kekayaan & tabungan tidak ludes akibat risiko kesehatan/jiwa.',
         examples: 'BPJS Kesehatan, Asuransi Kesehatan Swasta, Asuransi Jiwa Term-Life, Asuransi Kendaraan.',
-        tips: '💡 Fondasi paling dasar sebelum mulai berinvestasi risiko tinggi.',
+        tips: 'Fondasi paling dasar sebelum mulai berinvestasi risiko tinggi.',
         subs: ['Asuransi Jiwa', 'Asuransi Kesehatan', 'Asuransi Kendaraan', 'Lainnya'],
       },
       investasi: {
@@ -222,7 +222,7 @@ export default function Home({ initialView = 'landing' }) {
         color: '#DE9518',
         description: 'Alokasi dana jangka panjang untuk mengalahkan inflasi dan membangun kekayaan.',
         examples: 'Saham Bluechip, Reksadana Saham/Campuran, Obligasi Pemerintah (SBR/ORI), Emas Batangan.',
-        tips: '💡 Lakukan secara rutin tiap bulan (Dollar Cost Averaging).',
+        tips: 'Lakukan secara rutin tiap bulan (Dollar Cost Averaging).',
         subs: ['Saham', 'Reksadana', 'Obligasi', 'Emas', 'Kripto', 'Lainnya'],
       },
       cadangan: {
@@ -230,7 +230,7 @@ export default function Home({ initialView = 'landing' }) {
         color: '#B8471F',
         description: 'Alokasi tabungan untuk rencana pengeluaran khusus di masa depan (jangka pendek/menengah).',
         examples: 'Dana Liburan, DP Rumah/Motor, Dana Perayaan Hari Raya, Gadget/Komputer Baru.',
-        tips: '💡 Dipisahkan agar tidak terpakai untuk kebutuhan harian.',
+        tips: 'Dipisahkan agar tidak terpakai untuk kebutuhan harian.',
         subs: ['Dana Liburan', 'Dana Perayaan', 'Cadangan Lainnya'],
       },
     };
@@ -759,7 +759,7 @@ export default function Home({ initialView = 'landing' }) {
           }
 
           this.closeModal('profileModal');
-          toast('Profil berhasil disimpan & dilengkapi! 🎉');
+          toast('Profil berhasil disimpan & dilengkapi!');
           this.renderAll();
         } catch (err) {
           console.error(err);
@@ -953,7 +953,7 @@ export default function Home({ initialView = 'landing' }) {
           listEl.innerHTML = `<div class="flex flex-col items-center gap-2 py-6 px-4 text-center">
             <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#4FA88E" strokeWidth="1.8"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
             <p class="text-sm font-semibold text-teal-700">Semua tagihan lunas!</p>
-            <p class="text-[12px] text-inksoft">Tidak ada tagihan yang tertunda. Mantap! 🎉</p>
+            <p class="text-[12px] text-inksoft">Tidak ada tagihan yang tertunda. Selesai.</p>
           </div>`;
           return;
         }
@@ -1620,7 +1620,7 @@ export default function Home({ initialView = 'landing' }) {
           this.closeModal('monthlyEstimateModal');
           this.ensureRangeIncludes(targetDate);
           await this.loadAllData();
-          toast(`Berhasil menyimpan ${items.length} item perencanaan pengeluaran ke database! 🎉`);
+          toast(`Berhasil menyimpan ${items.length} item perencanaan pengeluaran ke database!`);
         } catch (err) {
           console.error(err);
           toast(err.message || 'Gagal menyimpan estimasi pengeluaran', 'err');
@@ -2816,36 +2816,36 @@ export default function Home({ initialView = 'landing' }) {
         if (savingRatio >= 20) {
           score += 15;
           metrics.push({ label: 'Rasio Tabungan & Alokasi', val: `${Math.round(savingRatio)}%`, status: 'Sangat Sehat', color: 'text-emerald-400' });
-          insights.push({ type: 'success', icon: '💡', title: 'Rasio Alokasi Finansial Prima', text: `Anda telah mengalokasikan ${Math.round(savingRatio)}% dari total pemasukan. Ini di atas standar sehat 20% yang direkomendasikan perencana keuangan.` });
+          insights.push({ type: 'success', icon: `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M9 18h6M10 22h4M15.09 14A6 6 0 0 0 18 9a6 6 0 0 0-12 0 6 6 0 0 0 2.91 5"/></svg>`, title: 'Rasio Alokasi Finansial Prima', text: `Anda telah mengalokasikan ${Math.round(savingRatio)}% dari total pemasukan. Ini di atas standar sehat 20% yang direkomendasikan perencana keuangan.` });
         } else if (savingRatio > 0) {
           score += 5;
           metrics.push({ label: 'Rasio Tabungan & Alokasi', val: `${Math.round(savingRatio)}%`, status: 'Cukup Baik', color: 'text-amber-400' });
-          insights.push({ type: 'warning', icon: '💡', title: 'Tingkatkan Alokasi Tabungan', text: `Rasio alokasi Anda saat ini ${Math.round(savingRatio)}%. Cobalah tingkatkan secara bertahap menuju target 20% dari total pemasukan.` });
+          insights.push({ type: 'warning', icon: `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M9 18h6M10 22h4M15.09 14A6 6 0 0 0 18 9a6 6 0 0 0-12 0 6 6 0 0 0 2.91 5"/></svg>`, title: 'Tingkatkan Alokasi Tabungan', text: `Rasio alokasi Anda saat ini ${Math.round(savingRatio)}%. Cobalah tingkatkan secara bertahap menuju target 20% dari total pemasukan.` });
         } else {
           score -= 10;
           metrics.push({ label: 'Rasio Tabungan & Alokasi', val: '0%', status: 'Perlu Perhatian', color: 'text-rose-400' });
-          insights.push({ type: 'danger', icon: '⚠️', title: 'Belum Ada Alokasi Tabungan', text: 'Belum ada dana alokasi yang disisihkan pada periode ini. Sisihkan alokasi di awal bulan sebelum melakukan pengeluaran dinamis.' });
+          insights.push({ type: 'danger', icon: `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>`, title: 'Belum Ada Alokasi Tabungan', text: 'Belum ada dana alokasi yang disisihkan pada periode ini. Sisihkan alokasi di awal bulan sebelum melakukan pengeluaran dinamis.' });
         }
 
         const expRatio = totalInc > 0 ? (totalExp / totalInc) * 100 : 0;
         if (totalInc > 0 && expRatio <= 60) {
           score += 15;
           metrics.push({ label: 'Rasio Pengeluaran', val: `${Math.round(expRatio)}%`, status: 'Efisien', color: 'text-emerald-400' });
-          insights.push({ type: 'success', icon: '📊', title: 'Pengeluaran Sangat Efisien', text: `Pengeluaran Anda hanya ${Math.round(expRatio)}% dari total pemasukan. Anda memiliki ruang finansial yang sangat aman.` });
+          insights.push({ type: 'success', icon: `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>`, title: 'Pengeluaran Sangat Efisien', text: `Pengeluaran Anda hanya ${Math.round(expRatio)}% dari total pemasukan. Anda memiliki ruang finansial yang sangat aman.` });
         } else if (totalInc > 0 && expRatio <= 85) {
           metrics.push({ label: 'Rasio Pengeluaran', val: `${Math.round(expRatio)}%`, status: 'Normal', color: 'text-amber-400' });
-          insights.push({ type: 'info', icon: '📊', title: 'Pengeluaran Terkendali', text: `Pengeluaran berada di level ${Math.round(expRatio)}% dari pemasukan. Pantau pos pengeluaran dinamis agar tidak terus meningkat.` });
+          insights.push({ type: 'info', icon: `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>`, title: 'Pengeluaran Terkendali', text: `Pengeluaran berada di level ${Math.round(expRatio)}% dari pemasukan. Pantau pos pengeluaran dinamis agar tidak terus meningkat.` });
         } else if (balance < 0) {
           score -= 20;
           metrics.push({ label: 'Rasio Pengeluaran', val: `${totalInc > 0 ? Math.round(expRatio) : 100}%`, status: 'Defisit', color: 'text-rose-400' });
-          insights.push({ type: 'danger', icon: '🚨', title: 'Peringatan Defisit Anggaran', text: `Pengeluaran melebihi pemasukan sebesar ${U.fmtIDR(Math.abs(balance))}. Evaluasi dan tekan segera pengeluaran non-esensial.` });
+          insights.push({ type: 'danger', icon: `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>`, title: 'Peringatan Defisit Anggaran', text: `Pengeluaran melebihi pemasukan sebesar ${U.fmtIDR(Math.abs(balance))}. Evaluasi dan tekan segera pengeluaran non-esensial.` });
         }
 
         const dinamisTotal = exp.filter((x) => x.category === 'dinamis').reduce((s, x) => s + Number(x.amount || 0), 0);
         const dinamisRatio = totalInc > 0 ? (dinamisTotal / totalInc) * 100 : 0;
         if (totalInc > 0 && dinamisRatio > 30) {
           score -= 10;
-          insights.push({ type: 'warning', icon: '🛍️', title: 'Evaluasi Gaya Hidup & Variabel', text: `Pengeluaran dinamis/variabel mencapai ${Math.round(dinamisRatio)}% (${U.fmtIDR(dinamisTotal)}). Batasi kebutuhan sekunder/rekreasi hingga di bawah 30%.` });
+          insights.push({ type: 'warning', icon: `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"/><line x1="3" y1="6" x2="21" y2="6"/><path d="M16 10a4 4 0 0 1-8 0"/></svg>`, title: 'Evaluasi Gaya Hidup & Variabel', text: `Pengeluaran dinamis/variabel mencapai ${Math.round(dinamisRatio)}% (${U.fmtIDR(dinamisTotal)}). Batasi kebutuhan sekunder/rekreasi hingga di bawah 30%.` });
         }
 
         const daruratTotal = this.allocations.items.filter((x) => x.category === 'darurat').reduce((s, x) => s + Number(x.amount || 0), 0);
@@ -2855,16 +2855,16 @@ export default function Home({ initialView = 'landing' }) {
         if (avgMonthlyExp > 0 && daruratTotal >= avgMonthlyExp * 6) {
           score += 10;
           metrics.push({ label: 'Dana Darurat', val: `${monthsCovered} bln`, status: 'Sangat Aman', color: 'text-emerald-400' });
-          insights.push({ type: 'success', icon: '🛡️', title: 'Fondasi Dana Darurat Kuat', text: `Dana darurat Anda mencukupi ${monthsCovered} bulan pengeluaran. Fondasi keamanan finansial Anda sangat tangguh.` });
+          insights.push({ type: 'success', icon: `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>`, title: 'Fondasi Dana Darurat Kuat', text: `Dana darurat Anda mencukupi ${monthsCovered} bulan pengeluaran. Fondasi keamanan finansial Anda sangat tangguh.` });
         } else {
           metrics.push({ label: 'Dana Darurat', val: `${monthsCovered} bln`, status: 'Perlu Ditambah', color: 'text-amber-400' });
-          insights.push({ type: 'warning', icon: '🛡️', title: 'Target Dana Darurat', text: `Dana darurat (${U.fmtIDR(daruratTotal)}) baru mencukupi ${monthsCovered} bulan pengeluaran bulanan (${U.fmtIDR(avgMonthlyExp)}). Idealnya minimal 3 hingga 6 bulan.` });
+          insights.push({ type: 'warning', icon: `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>`, title: 'Target Dana Darurat', text: `Dana darurat (${U.fmtIDR(daruratTotal)}) baru mencukupi ${monthsCovered} bulan pengeluaran bulanan (${U.fmtIDR(avgMonthlyExp)}). Idealnya minimal 3 hingga 6 bulan.` });
         }
 
         const unpaidBills = this.expenses.items.filter((x) => (x.category === 'tetap' || x.category === 'berkala') && x.status === 'unpaid');
         if (unpaidBills.length > 0) {
           score -= 15;
-          insights.push({ type: 'danger', icon: '⏰', title: 'Tagihan Belum Terbayar', text: `Terdapat ${unpaidBills.length} tagihan tetap/berkala belum dibayar. Segera lunasi untuk menghindari denda keterlambatan.` });
+          insights.push({ type: 'danger', icon: `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>`, title: 'Tagihan Belum Terbayar', text: `Terdapat ${unpaidBills.length} tagihan tetap/berkala belum dibayar. Segera lunasi untuk menghindari denda keterlambatan.` });
         } else {
           score += 5;
         }
@@ -3209,9 +3209,9 @@ export default function Home({ initialView = 'landing' }) {
               <p className="text-xs text-slate-400 mt-0.5">Pilih kelompok transaksi untuk melihat alur arus kas & analisis grafiknya.</p>
             </div>
             <div id="dashGroupTabs" className="flex items-center gap-1.5 bg-slate-950 p-1.5 rounded-xl border border-slate-800">
-              <button type="button" data-dash-group="expense" className="dash-group-tab active px-3.5 py-1.5 rounded-lg text-xs font-bold transition bg-rose-500/20 text-rose-300 border border-rose-500/40">🔴 Pengeluaran</button>
-              <button type="button" data-dash-group="income" className="dash-group-tab px-3.5 py-1.5 rounded-lg text-xs font-bold transition text-slate-400 hover:text-white">🟢 Pemasukan</button>
-              <button type="button" data-dash-group="allocation" className="dash-group-tab px-3.5 py-1.5 rounded-lg text-xs font-bold transition text-slate-400 hover:text-white">🔵 Dana Alokasi</button>
+              <button type="button" data-dash-group="expense" className="dash-group-tab active px-3.5 py-1.5 rounded-lg text-xs font-bold transition bg-rose-500/20 text-rose-300 border border-rose-500/40">Pengeluaran</button>
+              <button type="button" data-dash-group="income" className="dash-group-tab px-3.5 py-1.5 rounded-lg text-xs font-bold transition text-slate-400 hover:text-white">Pemasukan</button>
+              <button type="button" data-dash-group="allocation" className="dash-group-tab px-3.5 py-1.5 rounded-lg text-xs font-bold transition text-slate-400 hover:text-white">Dana Alokasi</button>
             </div>
           </div>
           <div id="cascadeWrap" className="overflow-x-auto pb-1"></div>
@@ -3248,7 +3248,7 @@ export default function Home({ initialView = 'landing' }) {
           <div className="flex flex-wrap items-center gap-2">
             <button id="openMonthlyEstModalBtn" type="button" className="bg-gradient-to-r from-amber-500 via-orange-500 to-amber-600 hover:from-amber-400 hover:to-orange-400 text-slate-950 text-xs sm:text-sm font-bold rounded-xl px-3.5 sm:px-4 h-10 shadow-lg shadow-amber-500/20 flex items-center gap-1.5 transition">
               <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.3"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/><path d="M8 14h.01M12 14h.01M16 14h.01M8 18h.01M12 18h.01M16 18h.01"/></svg>
-              <span>📊 Rencana &amp; Estimasi Bulanan</span>
+              <span>Rencana &amp; Estimasi Bulanan</span>
             </button>
             <button data-add="expense" className="bg-gradient-to-r from-teal-500 to-emerald-500 hover:from-teal-400 hover:to-emerald-400 text-slate-950 text-xs sm:text-sm font-bold rounded-xl px-3.5 sm:px-4.5 h-10 shadow-lg shadow-teal-500/20">+ Catat Pengeluaran</button>
           </div>
@@ -3272,7 +3272,7 @@ export default function Home({ initialView = 'landing' }) {
                 <strong className="text-teal-300 font-bold">1. Pengeluaran Tetap</strong>
               </div>
               <p className="text-slate-400 text-[11px]">Tagihan rutin bulanan bernilai konstan &amp; wajib (Sewa/KPR, Listrik, Air, Wi-Fi, Cicilan, SPP). Memiliki sanksi/denda jika terlambat.</p>
-              <p className="text-teal-400/90 text-[10.5px] font-semibold pt-0.5">💡 Porsi ideal: Maksimal 30–40% dari total penghasilan.</p>
+              <p className="text-teal-400/90 text-[10.5px] font-semibold pt-0.5">Porsi ideal: Maksimal 30–40% dari total penghasilan.</p>
             </div>
             <div className="p-3 rounded-xl bg-slate-950/80 border border-amber-500/30 space-y-1">
               <div className="flex items-center gap-1.5">
@@ -3280,7 +3280,7 @@ export default function Home({ initialView = 'landing' }) {
                 <strong className="text-amber-300 font-bold">2. Pengeluaran Berkala</strong>
               </div>
               <p className="text-slate-400 text-[11px]">Pengeluaran rutin dengan siklus terprediksi di luar bulanan (Pajak STNK, Servis Besar Kendaraan, PBB, Zakat Tahunan).</p>
-              <p className="text-amber-400/90 text-[10.5px] font-semibold pt-0.5">💡 Tips: Cicil tabung tiap bulan agar tidak kaget.</p>
+              <p className="text-amber-400/90 text-[10.5px] font-semibold pt-0.5">Tips: Cicil tabung tiap bulan agar tidak kaget.</p>
             </div>
             <div className="p-3 rounded-xl bg-slate-950/80 border border-rose-500/30 space-y-1">
               <div className="flex items-center gap-1.5">
@@ -3288,7 +3288,7 @@ export default function Home({ initialView = 'landing' }) {
                 <strong className="text-rose-300 font-bold">3. Pengeluaran Dinamis</strong>
               </div>
               <p className="text-slate-400 text-[11px]">Pengeluaran harian/fleksibel (Makan luar, Hiburan, Transportasi, Belanja hobi/pakaian, Jajan). Sangat mudah dikontrol.</p>
-              <p className="text-rose-400/90 text-[10.5px] font-semibold pt-0.5">💡 Pos terbaik dihemat jika ingin menaikkan tabungan!</p>
+              <p className="text-rose-400/90 text-[10.5px] font-semibold pt-0.5">Pos terbaik dihemat jika ingin menaikkan tabungan!</p>
             </div>
           </div>
         </div>
@@ -3358,7 +3358,7 @@ export default function Home({ initialView = 'landing' }) {
                 <strong className="text-teal-300 font-bold">1. Earned / Active Income</strong>
               </div>
               <p className="text-slate-400 text-[11px]">Penghasilan dari pertukaran waktu &amp; tenaga secara langsung (Gaji Bulanan, Upah Harian, Bonus Kinerja, Freelance, Komisi).</p>
-              <p className="text-teal-400/90 text-[10.5px] font-semibold pt-0.5">💡 Sumber modal awal untuk biaya hidup &amp; investasi.</p>
+              <p className="text-teal-400/90 text-[10.5px] font-semibold pt-0.5">Sumber modal awal untuk biaya hidup &amp; investasi.</p>
             </div>
             <div className="p-3 rounded-xl bg-slate-950/80 border border-emerald-500/30 space-y-1">
               <div className="flex items-center gap-1.5">
@@ -3366,7 +3366,7 @@ export default function Home({ initialView = 'landing' }) {
                 <strong className="text-emerald-300 font-bold">2. Passive Income</strong>
               </div>
               <p className="text-slate-400 text-[11px]">Penghasilan dari aset/sistem tanpa kehadiran fisik harian (Sewa Kos/Kontrakan, Royalti Karya, Lisensi Software, Bisnis Auto-pilot).</p>
-              <p className="text-emerald-400/90 text-[10.5px] font-semibold pt-0.5">💡 Target kebebasan finansial jangka panjang.</p>
+              <p className="text-emerald-400/90 text-[10.5px] font-semibold pt-0.5">Target kebebasan finansial jangka panjang.</p>
             </div>
             <div className="p-3 rounded-xl bg-slate-950/80 border border-teal-400/30 space-y-1">
               <div className="flex items-center gap-1.5">
@@ -3374,7 +3374,7 @@ export default function Home({ initialView = 'landing' }) {
                 <strong className="text-teal-200 font-bold">3. Portfolio / Investment</strong>
               </div>
               <p className="text-slate-400 text-[11px]">Imbal hasil dari pertumbuhan aset modal (Dividen Saham, Bunga Deposito, Gain Reksadana/Saham, Kupon Obligasi/ORI).</p>
-              <p className="text-teal-300/90 text-[10.5px] font-semibold pt-0.5">💡 Hasil dari membiarkan uang bekerja untuk Anda.</p>
+              <p className="text-teal-300/90 text-[10.5px] font-semibold pt-0.5">Hasil dari membiarkan uang bekerja untuk Anda.</p>
             </div>
           </div>
         </div>
@@ -3444,7 +3444,7 @@ export default function Home({ initialView = 'landing' }) {
                 <strong className="text-teal-300 font-bold">1. Dana Darurat</strong>
               </div>
               <p className="text-slate-400 text-[11px]">Bantal pengaman cair untuk kondisi krisis (PHK, musibah). Simpan di Reksadana Pasar Uang / Rekening Khusus.</p>
-              <p className="text-teal-400/90 text-[10.5px] font-semibold pt-0.5">💡 Target: 3–6 bulan pengeluaran rutin.</p>
+              <p className="text-teal-400/90 text-[10.5px] font-semibold pt-0.5">Target: 3–6 bulan pengeluaran rutin.</p>
             </div>
             <div className="p-3 rounded-xl bg-slate-950/80 border border-emerald-500/30 space-y-1">
               <div className="flex items-center gap-1.5">
@@ -3452,7 +3452,7 @@ export default function Home({ initialView = 'landing' }) {
                 <strong className="text-emerald-300 font-bold">2. Asuransi &amp; Proteksi</strong>
               </div>
               <p className="text-slate-400 text-[11px]">Pengaman risiko kesehatan/jiwa (BPJS, Asuransi Kesehatan/Jiwa) agar tabungan &amp; aset tidak ludes saat sakit.</p>
-              <p className="text-emerald-400/90 text-[10.5px] font-semibold pt-0.5">💡 Wajib dipunya sebelum investasi tinggi.</p>
+              <p className="text-emerald-400/90 text-[10.5px] font-semibold pt-0.5">Wajib dipunya sebelum investasi tinggi.</p>
             </div>
             <div className="p-3 rounded-xl bg-slate-950/80 border border-amber-500/30 space-y-1">
               <div className="flex items-center gap-1.5">
@@ -3460,7 +3460,7 @@ export default function Home({ initialView = 'landing' }) {
                 <strong className="text-amber-300 font-bold">3. Investasi (Growth)</strong>
               </div>
               <p className="text-slate-400 text-[11px]">Alokasi jangka panjang lawan inflasi (Saham, Reksadana, Obligasi, Emas) untuk kebebasan finansial.</p>
-              <p className="text-amber-400/90 text-[10.5px] font-semibold pt-0.5">💡 Lakukan rutin tiap bulan (DCA).</p>
+              <p className="text-amber-400/90 text-[10.5px] font-semibold pt-0.5">Lakukan rutin tiap bulan (DCA).</p>
             </div>
             <div className="p-3 rounded-xl bg-slate-950/80 border border-rose-500/30 space-y-1">
               <div className="flex items-center gap-1.5">
@@ -3468,7 +3468,7 @@ export default function Home({ initialView = 'landing' }) {
                 <strong className="text-rose-300 font-bold">4. Cadangan &amp; Target</strong>
               </div>
               <p className="text-slate-400 text-[11px]">Tabungan target khusus jangka pendek/menengah (Dana Liburan, DP Rumah/Motor, Hari Raya, Gadget).</p>
-              <p className="text-rose-400/90 text-[10.5px] font-semibold pt-0.5">💡 Pisahkan agar tak terpakai harian.</p>
+              <p className="text-rose-400/90 text-[10.5px] font-semibold pt-0.5">Pisahkan agar tak terpakai harian.</p>
             </div>
           </div>
         </div>
@@ -3948,8 +3948,8 @@ export default function Home({ initialView = 'landing' }) {
   <div className="bg-slate-900 border border-slate-700/80 text-slate-100 rounded-2xl w-full max-w-4xl p-4 sm:p-6 space-y-4 max-h-[92vh] overflow-y-auto shadow-2xl">
     <div className="flex items-center justify-between border-b border-slate-800 pb-3">
       <div>
-        <h3 className="font-display font-bold text-base sm:text-lg text-white flex items-center gap-2">
-          <span>📊</span> Perencanaan &amp; Kalkulator Estimasi Pengeluaran Bulanan
+        <h3 className="font-display font-bold text-base sm:text-lg text-white">
+          Perencanaan &amp; Kalkulator Estimasi Pengeluaran Bulanan
         </h3>
         <p className="text-xs text-slate-400 mt-0.5">Input perencanaan pengeluaran harian/mingguan/bulanan secara massal dan simpan langsung ke Supabase.</p>
       </div>
@@ -3963,7 +3963,7 @@ export default function Home({ initialView = 'landing' }) {
         <input id="estTargetMonth" type="month" className="border border-slate-800 rounded-xl h-9 px-3 text-xs bg-slate-900 text-white focus:border-amber-500 focus:outline-none" />
       </div>
       <div className="text-xs text-slate-400">
-        💡 Rumus: <span className="text-amber-300 font-medium">Harian (×30)</span> · <span className="text-amber-300 font-medium">Mingguan (×4)</span> · <span className="text-amber-300 font-medium">Bulanan (×1)</span>
+        Rumus: <span className="text-amber-300 font-medium">Harian (×30)</span> · <span className="text-amber-300 font-medium">Mingguan (×4)</span> · <span className="text-amber-300 font-medium">Bulanan (×1)</span>
       </div>
     </div>
 
@@ -4022,7 +4022,7 @@ export default function Home({ initialView = 'landing' }) {
     <div className="flex items-center justify-end gap-3 pt-2 border-t border-slate-800">
       <button type="button" id="estCancelBtn" className="px-4 py-2.5 rounded-xl border border-slate-700 bg-slate-800 text-xs font-semibold text-slate-300 hover:text-white transition">Batal</button>
       <button type="button" id="estSaveBtn" className="flex-1 sm:flex-none bg-gradient-to-r from-amber-500 via-orange-500 to-amber-600 hover:from-amber-400 hover:to-orange-400 text-slate-950 font-extrabold text-xs sm:text-sm rounded-xl px-6 py-2.5 shadow-lg shadow-amber-500/25 transition flex items-center justify-center gap-2">
-        <span>💾</span> Simpan Semua ke Database Supabase
+        Simpan Semua ke Database Supabase
       </button>
     </div>
   </div>
