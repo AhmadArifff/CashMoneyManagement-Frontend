@@ -1278,6 +1278,13 @@ export default function Home({ initialView = 'landing' }) {
           this.closeModal('confirmModal');
         });
         document.getElementById('exportPdfBtn')?.addEventListener('click', () => this.exportPdf());
+
+        // monthly estimate planner bindings
+        document.getElementById('openMonthlyEstModalBtn')?.addEventListener('click', () => this.openMonthlyEstimateModal());
+        document.getElementById('monthlyEstClose')?.addEventListener('click', () => this.closeModal('monthlyEstimateModal'));
+        document.getElementById('estCancelBtn')?.addEventListener('click', () => this.closeModal('monthlyEstimateModal'));
+        document.getElementById('estAddRowBtn')?.addEventListener('click', () => this.addEstimateRow());
+        document.getElementById('estSaveBtn')?.addEventListener('click', () => this.submitMonthlyEstimates());
       }
       async loginSubmit(e) {
         e.preventDefault();
@@ -1406,6 +1413,220 @@ export default function Home({ initialView = 'landing' }) {
           }
         }
       }
+      openMonthlyEstimateModal() {
+        const modal = document.getElementById('monthlyEstimateModal');
+        if (!modal) return;
+
+        const targetMonthEl = document.getElementById('estTargetMonth');
+        if (targetMonthEl) {
+          const now = new Date();
+          const yyyy = now.getFullYear();
+          const mm = String(now.getMonth() + 1).padStart(2, '0');
+          targetMonthEl.value = `${yyyy}-${mm}`;
+        }
+
+        const container = document.getElementById('estRowsContainer');
+        if (container) {
+          container.innerHTML = '';
+        }
+
+        const defaults = [
+          { sub: 'Makan & Minum Harian', cat: 'dinamis', isEstimate: true, freq: 'harian', amount: 30000, note: 'Makan siang & malam' },
+          { sub: 'BBM / Transportasi', cat: 'dinamis', isEstimate: true, freq: 'harian', amount: 15000, note: 'Bensin harian' },
+          { sub: 'Tagihan Listrik & Air', cat: 'tetap', isEstimate: true, freq: 'bulanan', amount: 350000, note: 'Estimasi tagihan rutin' },
+          { sub: 'Langganan Internet / Wi-Fi', cat: 'tetap', isEstimate: true, freq: 'bulanan', amount: 300000, note: 'Wi-Fi bulanan' },
+        ];
+
+        defaults.forEach((item) => this.addEstimateRow(item));
+        this.recalcEstimateTotals();
+        this.openModal('monthlyEstimateModal');
+      }
+
+      addEstimateRow(data = {}) {
+        const container = document.getElementById('estRowsContainer');
+        if (!container) return;
+
+        const tr = document.createElement('tr');
+        tr.className = 'hover:bg-slate-900/80 transition';
+        tr.innerHTML = `
+          <td class="p-2">
+            <input type="text" class="est-row-sub w-full bg-slate-900 border border-slate-800 rounded-lg px-2.5 py-1.5 text-xs text-white focus:border-amber-500 focus:outline-none" placeholder="mis. Makan Harian" value="${data.sub || ''}" />
+          </td>
+          <td class="p-2">
+            <select class="est-row-cat w-full bg-slate-900 border border-slate-800 rounded-lg px-2 py-1.5 text-xs text-white focus:border-amber-500 focus:outline-none">
+              <option value="tetap" ${data.cat === 'tetap' ? 'selected' : ''}>Tetap</option>
+              <option value="berkala" ${data.cat === 'berkala' ? 'selected' : ''}>Berkala</option>
+              <option value="dinamis" ${data.cat === 'dinamis' || !data.cat ? 'selected' : ''}>Dinamis</option>
+            </select>
+          </td>
+          <td class="p-2">
+            <select class="est-row-estimate w-full bg-slate-900 border border-slate-800 rounded-lg px-2 py-1.5 text-xs text-white focus:border-amber-500 focus:outline-none">
+              <option value="true" ${data.isEstimate !== false ? 'selected' : ''}>Estimasi</option>
+              <option value="false" ${data.isEstimate === false ? 'selected' : ''}>Tetap / Realisasi</option>
+            </select>
+          </td>
+          <td class="p-2">
+            <select class="est-row-freq w-full bg-slate-900 border border-slate-800 rounded-lg px-2 py-1.5 text-xs text-white focus:border-amber-500 focus:outline-none">
+              <option value="harian" ${data.freq === 'harian' ? 'selected' : ''}>Harian (×30)</option>
+              <option value="mingguan" ${data.freq === 'mingguan' ? 'selected' : ''}>Mingguan (×4)</option>
+              <option value="bulanan" ${data.freq === 'bulanan' || !data.freq ? 'selected' : ''}>Bulanan (×1)</option>
+            </select>
+          </td>
+          <td class="p-2">
+            <input type="text" inputmode="numeric" class="est-row-amount w-full bg-slate-900 border border-slate-800 rounded-lg px-2.5 py-1.5 text-xs font-mono text-white focus:border-amber-500 focus:outline-none" placeholder="0" value="${data.amount ? U.formatNumberID(data.amount) : ''}" />
+          </td>
+          <td class="p-2 text-right font-mono font-bold text-amber-300 est-row-total text-xs whitespace-nowrap">
+            Rp 0
+          </td>
+          <td class="p-2">
+            <input type="text" class="est-row-note w-full bg-slate-900 border border-slate-800 rounded-lg px-2.5 py-1.5 text-xs text-slate-300 focus:border-amber-500 focus:outline-none" placeholder="Catatan" value="${data.note || ''}" />
+          </td>
+          <td class="p-2 text-center">
+            <button type="button" class="est-row-del text-rose-400 hover:text-rose-300 p-1 text-sm font-bold transition">✕</button>
+          </td>
+        `;
+
+        container.appendChild(tr);
+
+        const amtInput = tr.querySelector('.est-row-amount');
+        if (amtInput) {
+          U.attachRupiahInputMask(amtInput);
+          amtInput.addEventListener('input', () => this.recalcEstimateTotals());
+        }
+
+        tr.querySelector('.est-row-freq')?.addEventListener('change', () => this.recalcEstimateTotals());
+        tr.querySelector('.est-row-cat')?.addEventListener('change', () => this.recalcEstimateTotals());
+        tr.querySelector('.est-row-del')?.addEventListener('click', () => {
+          tr.remove();
+          this.recalcEstimateTotals();
+        });
+
+        this.recalcEstimateTotals();
+      }
+
+      recalcEstimateTotals() {
+        const rows = document.querySelectorAll('#estRowsContainer tr');
+        let totTetap = 0;
+        let totBerkala = 0;
+        let totDinamis = 0;
+
+        rows.forEach((tr) => {
+          const cat = tr.querySelector('.est-row-cat')?.value || 'dinamis';
+          const freq = tr.querySelector('.est-row-freq')?.value || 'bulanan';
+          const unitVal = U.parseNumberID(tr.querySelector('.est-row-amount')?.value || 0);
+
+          let mult = 1;
+          if (freq === 'harian') mult = 30;
+          else if (freq === 'mingguan') mult = 4;
+          else mult = 1;
+
+          const rowTotal = unitVal * mult;
+          const totEl = tr.querySelector('.est-row-total');
+          if (totEl) totEl.textContent = U.fmtIDR(rowTotal);
+
+          if (cat === 'tetap') totTetap += rowTotal;
+          else if (cat === 'berkala') totBerkala += rowTotal;
+          else totDinamis += rowTotal;
+        });
+
+        const grandTotal = totTetap + totBerkala + totDinamis;
+
+        const elTetap = document.getElementById('estTotalTetap');
+        if (elTetap) elTetap.textContent = U.fmtIDR(totTetap);
+        const elBerkala = document.getElementById('estTotalBerkala');
+        if (elBerkala) elBerkala.textContent = U.fmtIDR(totBerkala);
+        const elDinamis = document.getElementById('estTotalDinamis');
+        if (elDinamis) elDinamis.textContent = U.fmtIDR(totDinamis);
+        const elGrand = document.getElementById('estGrandTotal');
+        if (elGrand) elGrand.textContent = U.fmtIDR(grandTotal);
+      }
+
+      async submitMonthlyEstimates() {
+        const targetMonthStr = document.getElementById('estTargetMonth')?.value;
+        if (!targetMonthStr) {
+          return toast('Pilih bulan target terlebih dahulu', 'err');
+        }
+
+        const targetDate = `${targetMonthStr}-01`;
+        const rows = document.querySelectorAll('#estRowsContainer tr');
+        const items = [];
+
+        rows.forEach((tr) => {
+          const sub = (tr.querySelector('.est-row-sub')?.value || '').trim();
+          const cat = tr.querySelector('.est-row-cat')?.value || 'dinamis';
+          const isEstVal = tr.querySelector('.est-row-estimate')?.value === 'true';
+          const freq = tr.querySelector('.est-row-freq')?.value || 'bulanan';
+          const unitVal = U.parseNumberID(tr.querySelector('.est-row-amount')?.value || 0);
+          const note = (tr.querySelector('.est-row-note')?.value || '').trim();
+
+          if (sub && unitVal > 0) {
+            let mult = 1;
+            if (freq === 'harian') mult = 30;
+            else if (freq === 'mingguan') mult = 4;
+            else mult = 1;
+
+            const totalAmount = unitVal * mult;
+            const freqLabel = freq === 'harian' ? 'Harian ×30' : freq === 'mingguan' ? 'Mingguan ×4' : 'Bulanan';
+
+            items.push({
+              category: cat,
+              subcategory: sub,
+              frequency: freq,
+              amount: totalAmount,
+              date: targetDate,
+              status: cat === 'dinamis' ? 'paid' : 'unpaid',
+              isEstimate: isEstVal,
+              note: note ? `${note} (${freqLabel})` : `Estimasi Rencana ${freqLabel}`,
+            });
+          }
+        });
+
+        if (items.length === 0) {
+          return toast('Minimal isi 1 baris pengeluaran dengan nominal > 0', 'err');
+        }
+
+        try {
+          if (this.token) {
+            const res = await fetch(`${API_BASE}/expenses/batch`, {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${this.token}`,
+                'Accept': 'application/json',
+              },
+              body: JSON.stringify({ items }),
+            });
+
+            const json = await res.json();
+            if (!res.ok) throw new Error(json?.message || 'Gagal menyimpan batch estimasi');
+
+            const createdItems = (json?.data || []).map(x => expenseFromBackend(x));
+            createdItems.forEach((created) => {
+              const idx = this.expenses.items.findIndex(x => x.id === created.id);
+              if (idx !== -1) this.expenses.items[idx] = created;
+              else this.expenses.items.push(created);
+            });
+            await this.expenses.persist();
+          } else {
+            for (const item of items) {
+              await this.expenses.add({
+                id: U.uid(),
+                ...item,
+                createdAt: Date.now(),
+              });
+            }
+          }
+
+          this.closeModal('monthlyEstimateModal');
+          this.ensureRangeIncludes(targetDate);
+          await this.loadAllData();
+          toast(`Berhasil menyimpan ${items.length} item perencanaan pengeluaran ke database! 🎉`);
+        } catch (err) {
+          console.error(err);
+          toast(err.message || 'Gagal menyimpan estimasi pengeluaran', 'err');
+        }
+      }
+
       setAttachmentPreview(containerId, url) {
         const el = document.getElementById(containerId);
         if (!el) return;
@@ -3024,7 +3245,13 @@ export default function Home({ initialView = 'landing' }) {
             <h1 className="font-display text-xl font-bold text-white">Kelola Pengeluaran</h1>
             <p className="text-[13px] text-slate-400">Pengeluaran Tetap, Berkala, dan Dinamis / Variabel</p>
           </div>
-          <button data-add="expense" className="bg-gradient-to-r from-teal-500 to-emerald-500 hover:from-teal-400 hover:to-emerald-400 text-slate-950 text-sm font-bold rounded-xl px-4.5 h-10 shadow-lg shadow-teal-500/20">+ Catat Pengeluaran</button>
+          <div className="flex flex-wrap items-center gap-2">
+            <button id="openMonthlyEstModalBtn" type="button" className="bg-gradient-to-r from-amber-500 via-orange-500 to-amber-600 hover:from-amber-400 hover:to-orange-400 text-slate-950 text-xs sm:text-sm font-bold rounded-xl px-3.5 sm:px-4 h-10 shadow-lg shadow-amber-500/20 flex items-center gap-1.5 transition">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.3"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/><path d="M8 14h.01M12 14h.01M16 14h.01M8 18h.01M12 18h.01M16 18h.01"/></svg>
+              <span>📊 Rencana &amp; Estimasi Bulanan</span>
+            </button>
+            <button data-add="expense" className="bg-gradient-to-r from-teal-500 to-emerald-500 hover:from-teal-400 hover:to-emerald-400 text-slate-950 text-xs sm:text-sm font-bold rounded-xl px-3.5 sm:px-4.5 h-10 shadow-lg shadow-teal-500/20">+ Catat Pengeluaran</button>
+          </div>
         </div>
 
         {/* Panduan Kategori Pengeluaran */}
@@ -3714,6 +3941,91 @@ export default function Home({ initialView = 'landing' }) {
       <button type="submit" className="flex-1 bg-gradient-to-r from-teal-500 to-emerald-500 text-slate-950 text-sm font-bold rounded-xl h-11 shadow-lg shadow-teal-500/25 transition">Simpan</button>
     </div>
   </form>
+</div>
+
+{/* ============ MONTHLY EXPENSE ESTIMATE MODAL ============ */}
+<div id="monthlyEstimateModal" className="modal-backdrop fixed inset-0 bg-slate-950/85 backdrop-blur-md z-40 items-end md:items-center justify-center overflow-y-auto py-4 px-2 sm:px-4">
+  <div className="bg-slate-900 border border-slate-700/80 text-slate-100 rounded-2xl w-full max-w-4xl p-4 sm:p-6 space-y-4 max-h-[92vh] overflow-y-auto shadow-2xl">
+    <div className="flex items-center justify-between border-b border-slate-800 pb-3">
+      <div>
+        <h3 className="font-display font-bold text-base sm:text-lg text-white flex items-center gap-2">
+          <span>📊</span> Perencanaan &amp; Kalkulator Estimasi Pengeluaran Bulanan
+        </h3>
+        <p className="text-xs text-slate-400 mt-0.5">Input perencanaan pengeluaran harian/mingguan/bulanan secara massal dan simpan langsung ke Supabase.</p>
+      </div>
+      <button type="button" id="monthlyEstClose" className="text-slate-400 hover:text-white text-2xl leading-none px-2 py-1">×</button>
+    </div>
+
+    {/* Header Controls */}
+    <div className="bg-slate-950/80 border border-slate-800 rounded-xl p-3 flex flex-wrap items-center justify-between gap-3">
+      <div className="flex items-center gap-2">
+        <label className="text-xs font-semibold text-slate-300">Pilih Bulan Target:</label>
+        <input id="estTargetMonth" type="month" className="border border-slate-800 rounded-xl h-9 px-3 text-xs bg-slate-900 text-white focus:border-amber-500 focus:outline-none" />
+      </div>
+      <div className="text-xs text-slate-400">
+        💡 Rumus: <span className="text-amber-300 font-medium">Harian (×30)</span> · <span className="text-amber-300 font-medium">Mingguan (×4)</span> · <span className="text-amber-300 font-medium">Bulanan (×1)</span>
+      </div>
+    </div>
+
+    {/* Table Rows Container */}
+    <div className="overflow-x-auto border border-slate-800 rounded-xl bg-slate-950/60">
+      <table className="w-full text-left border-collapse min-w-[760px]">
+        <thead className="bg-slate-900 text-[11px] font-bold text-slate-400 uppercase tracking-wider border-b border-slate-800">
+          <tr>
+            <th className="py-2.5 px-3 min-w-[160px]">Subkategori / Nama</th>
+            <th className="py-2.5 px-3 w-[120px]">Jenis</th>
+            <th className="py-2.5 px-3 w-[130px]">Tipe Status</th>
+            <th className="py-2.5 px-3 w-[125px]">Frekuensi</th>
+            <th className="py-2.5 px-3 min-w-[130px]">Nominal Satuan (Rp)</th>
+            <th className="py-2.5 px-3 min-w-[140px] text-right">Total Bulanan</th>
+            <th className="py-2.5 px-3 min-w-[130px]">Catatan</th>
+            <th className="py-2.5 px-2 text-center w-[45px]">Hapus</th>
+          </tr>
+        </thead>
+        <tbody id="estRowsContainer" className="divide-y divide-slate-800/80 text-xs">
+          {/* dynamic rows inserted via JS */}
+        </tbody>
+      </table>
+    </div>
+
+    {/* Add Row Button */}
+    <div className="flex items-center justify-between pt-1">
+      <button type="button" id="estAddRowBtn" className="inline-flex items-center gap-1.5 bg-slate-800 hover:bg-slate-700 text-teal-300 border border-teal-500/30 rounded-xl px-4 py-2 text-xs font-bold transition">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M12 5v14M5 12h14"/></svg>
+        + Tambah Baris Pengeluaran Lainnya
+      </button>
+
+      <span className="text-xs text-slate-400 hidden sm:inline">Semua perubahan nominal terhitung otomatis</span>
+    </div>
+
+    {/* Grand Summary Card */}
+    <div className="bg-slate-950 border border-amber-500/30 rounded-xl p-4 grid grid-cols-1 sm:grid-cols-4 gap-3 text-center sm:text-left">
+      <div>
+        <p className="text-[11px] text-slate-400">Estimasi Tetap</p>
+        <p id="estTotalTetap" className="font-mono font-bold text-teal-400 text-sm sm:text-base mt-0.5">Rp 0</p>
+      </div>
+      <div>
+        <p className="text-[11px] text-slate-400">Estimasi Berkala</p>
+        <p id="estTotalBerkala" className="font-mono font-bold text-amber-400 text-sm sm:text-base mt-0.5">Rp 0</p>
+      </div>
+      <div>
+        <p className="text-[11px] text-slate-400">Estimasi Dinamis</p>
+        <p id="estTotalDinamis" className="font-mono font-bold text-rose-400 text-sm sm:text-base mt-0.5">Rp 0</p>
+      </div>
+      <div className="sm:border-l sm:border-slate-800 sm:pl-4">
+        <p className="text-[11px] text-amber-300 font-bold">TOTAL ESTIMASI BULANAN</p>
+        <p id="estGrandTotal" className="font-mono font-extrabold text-amber-400 text-base sm:text-xl mt-0.5">Rp 0</p>
+      </div>
+    </div>
+
+    {/* Modal Actions */}
+    <div className="flex items-center justify-end gap-3 pt-2 border-t border-slate-800">
+      <button type="button" id="estCancelBtn" className="px-4 py-2.5 rounded-xl border border-slate-700 bg-slate-800 text-xs font-semibold text-slate-300 hover:text-white transition">Batal</button>
+      <button type="button" id="estSaveBtn" className="flex-1 sm:flex-none bg-gradient-to-r from-amber-500 via-orange-500 to-amber-600 hover:from-amber-400 hover:to-orange-400 text-slate-950 font-extrabold text-xs sm:text-sm rounded-xl px-6 py-2.5 shadow-lg shadow-amber-500/25 transition flex items-center justify-center gap-2">
+        <span>💾</span> Simpan Semua ke Database Supabase
+      </button>
+    </div>
+  </div>
 </div>
 
 {/* ============ INCOME FORM MODAL ============ */}
