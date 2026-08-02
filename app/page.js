@@ -583,6 +583,8 @@ export default function Home({ initialView = 'landing' }) {
         this.initialView = initialView;
         this.tokenKey = 'cashmoney:token';
         this.userKey = 'cashmoney:user';
+        this.sessionExpiryKey = 'cashmoney:session_expiry';
+        this.isFilteredByRange = false;
         this.user = null;
         this.profile = null;
         this.inited = false;
@@ -775,10 +777,12 @@ export default function Home({ initialView = 'landing' }) {
           const el = document.getElementById('loadingOverlay');
           if (el) el.style.opacity = '1';
 
+          const loadParams = this.isFilteredByRange ? { start: this.range.start, end: this.range.end } : null;
+
           await Promise.all([
-            this.expenses.load({ start: this.range.start, end: this.range.end }),
-            this.incomes.load({ start: this.range.start, end: this.range.end }),
-            this.allocations.load({ start: this.range.start, end: this.range.end })
+            this.expenses.load(loadParams),
+            this.incomes.load(loadParams),
+            this.allocations.load(loadParams)
           ]);
 
           // Automatically expand date range if items exist outside current default range
@@ -818,6 +822,7 @@ export default function Home({ initialView = 'landing' }) {
           // ignore
         }
         await this.store.set(this.tokenKey, '');
+        await this.store.set(this.sessionExpiryKey, '');
         this.token = null;
         await this.setUser(null);
         this.expenses.items = [];
@@ -845,6 +850,18 @@ export default function Home({ initialView = 'landing' }) {
         this.switchView(this.initialView === 'landing' ? 'dashboard' : this.initialView);
         
         this.token = await this.store.get(this.tokenKey);
+        const sessionExpiry = await this.store.get(this.sessionExpiryKey);
+        const now = Date.now();
+        if (this.token && sessionExpiry && now > Number(sessionExpiry)) {
+          console.warn('Sesi telah berakhir (melebihi 24 jam), mereset token.');
+          await this.store.set(this.tokenKey, '');
+          await this.store.set(this.sessionExpiryKey, '');
+          this.token = null;
+          await this.setUser(null);
+        } else if (this.token && !sessionExpiry) {
+          await this.store.set(this.sessionExpiryKey, String(now + 24 * 60 * 60 * 1000));
+        }
+
         if (this.token) {
           const rawUser = await this.store.get(this.userKey);
           if (rawUser) {
@@ -1113,11 +1130,21 @@ export default function Home({ initialView = 'landing' }) {
       bindRangePicker() {
         const updateLabel = () => {
           const labelEl = document.getElementById('rangeLabel');
-          if (labelEl) labelEl.textContent = U.fmtRangeLabel(this.range.start, this.range.end);
+          const resetBtn = document.getElementById('resetRangeBtn');
+          if (labelEl) {
+            labelEl.textContent = this.isFilteredByRange
+              ? U.fmtRangeLabel(this.range.start, this.range.end)
+              : 'Keseluruhan Data';
+          }
+          if (resetBtn) {
+            resetBtn.classList.toggle('hidden', !this.isFilteredByRange);
+            resetBtn.classList.toggle('flex', this.isFilteredByRange);
+          }
         };
         updateLabel();
         const input = document.getElementById('rangeInput');
         const rangeBtn = document.getElementById('rangeBtn');
+        const resetBtn = document.getElementById('resetRangeBtn');
         if (!input) return;
         this.fp = flatpickr(input, {
           mode: 'range',
@@ -1128,6 +1155,7 @@ export default function Home({ initialView = 'landing' }) {
           locale: { rangeSeparator: ' s/d ' },
           onClose: (selectedDates) => {
             if (selectedDates.length === 2) {
+              this.isFilteredByRange = true;
               this.range.start = U.iso(selectedDates[0]);
               this.range.end = U.iso(selectedDates[1]);
               updateLabel();
@@ -1136,6 +1164,12 @@ export default function Home({ initialView = 'landing' }) {
           },
         });
         rangeBtn?.addEventListener('click', () => this.fp.open());
+        resetBtn?.addEventListener('click', () => {
+          this.isFilteredByRange = false;
+          if (this.fp) this.fp.clear();
+          updateLabel();
+          this.loadAllData();
+        });
       }
       bindModals() {
         // Rupiah input masking
@@ -1307,7 +1341,9 @@ export default function Home({ initialView = 'landing' }) {
           const token = json?.token;
           if (!token) throw new Error('Token tidak diterima');
 
+          const expiryMs = Date.now() + 24 * 60 * 60 * 1000;
           await this.store.set(this.tokenKey, token);
+          await this.store.set(this.sessionExpiryKey, String(expiryMs));
           this.token = token;
           await this.setUser(json.user);
           if (typeof window !== 'undefined' && window.__onAuthChange) {
@@ -1351,7 +1387,9 @@ export default function Home({ initialView = 'landing' }) {
           const token = json?.token;
           if (!token) throw new Error('Token tidak diterima');
 
+          const expiryMs = Date.now() + 24 * 60 * 60 * 1000;
           await this.store.set(this.tokenKey, token);
+          await this.store.set(this.sessionExpiryKey, String(expiryMs));
           this.token = token;
           await this.setUser(json.user);
           if (typeof window !== 'undefined' && window.__onAuthChange) {
@@ -2068,12 +2106,15 @@ export default function Home({ initialView = 'landing' }) {
         }
       }
       currentExpenses() {
+        if (!this.isFilteredByRange) return this.expenses.items.filter((x) => !x.isEstimate);
         return this.expenses.inRange(this.range.start, this.range.end).filter((x) => !x.isEstimate);
       }
       currentIncomes() {
+        if (!this.isFilteredByRange) return this.incomes.items;
         return this.incomes.inRange(this.range.start, this.range.end);
       }
       currentAllocations() {
+        if (!this.isFilteredByRange) return this.allocations.items;
         return this.allocations.inRange(this.range.start, this.range.end);
       }
       renderDashboard() {
@@ -2085,7 +2126,11 @@ export default function Home({ initialView = 'landing' }) {
         const totalAlc = Aggregator.total(alc);
         const balance = totalInc - totalExp - totalAlc;
         const dashLabel = document.getElementById('dashPeriodLabel');
-        if (dashLabel) dashLabel.textContent = `Periode: ${U.fmtDateID(this.range.start)} – ${U.fmtDateID(this.range.end)}`;
+        if (dashLabel) {
+          dashLabel.textContent = this.isFilteredByRange
+            ? `Periode: ${U.fmtDateID(this.range.start)} – ${U.fmtDateID(this.range.end)}`
+            : `Periode: Keseluruhan Data`;
+        }
         const sInc = document.getElementById('sumIncome');
         if (sInc) sInc.textContent = U.fmtIDR(totalInc);
         const sExp = document.getElementById('sumExpense');
@@ -2705,7 +2750,9 @@ export default function Home({ initialView = 'landing' }) {
         const expRatio = totalInc > 0 ? (totalExp / totalInc) * 100 : 0;
         const isSurplus = balance >= 0;
 
-        document.getElementById('reportPeriod').innerHTML = `Periode Laporan<br>${U.fmtDateID(this.range.start)} – ${U.fmtDateID(this.range.end)}`;
+        document.getElementById('reportPeriod').innerHTML = this.isFilteredByRange
+          ? `Periode Laporan<br>${U.fmtDateID(this.range.start)} – ${U.fmtDateID(this.range.end)}`
+          : `Periode Laporan<br>Keseluruhan Data`;
         document.getElementById('repIncome').textContent = U.fmtIDR(totalInc);
         document.getElementById('repExpense').textContent = U.fmtIDR(totalExp);
         document.getElementById('repAllocation').textContent = U.fmtIDR(totalAlc);
@@ -3141,7 +3188,10 @@ export default function Home({ initialView = 'landing' }) {
       <div className="flex items-center gap-2">
         <button id="rangeBtn" className="flex items-center gap-2 border border-slate-700/80 rounded-xl px-3 h-10 text-sm bg-slate-800/90 text-slate-200 hover:border-teal-500/50 transition backdrop-blur-md">
           <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#2DD4BF" strokeWidth="2"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4"/></svg>
-          <span id="rangeLabel" className="font-mono text-[12.5px] text-slate-200 whitespace-nowrap"></span>
+          <span id="rangeLabel" className="font-mono text-[12.5px] text-slate-200 whitespace-nowrap">Keseluruhan Data</span>
+        </button>
+        <button id="resetRangeBtn" title="Tampilkan Keseluruhan Data" className="hidden border border-slate-700/80 rounded-xl w-10 h-10 bg-slate-800/90 text-slate-400 hover:text-white hover:border-teal-500/50 transition backdrop-blur-md items-center justify-center">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/></svg>
         </button>
         <input id="rangeInput" className="hidden" />
 
