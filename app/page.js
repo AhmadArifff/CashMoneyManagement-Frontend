@@ -2677,10 +2677,21 @@ export default function Home({ initialView = 'landing' }) {
         items = items.slice().sort((a, b) => sortDir === 'asc' ? a.date.localeCompare(b.date) : b.date.localeCompare(a.date));
 
         const perPageVal = document.getElementById('incomePerPage')?.value || '20';
+        const groupedMap = new Map();
+        items.forEach(x => {
+          const key = `${x.category}_${x.subcategory}`;
+          if (!groupedMap.has(key)) {
+            groupedMap.set(key, { category: x.category, subcategory: x.subcategory, items: [] });
+          }
+          groupedMap.get(key).items.push(x);
+        });
+        let groupedArray = Array.from(groupedMap.values());
+
+        const perPageVal = document.getElementById('incomePerPage')?.value || '20';
         if (perPageVal !== 'all') {
           const limit = parseInt(perPageVal, 10);
           if (!isNaN(limit) && limit > 0) {
-            items = items.slice(0, limit);
+            groupedArray = groupedArray.slice(0, limit);
           }
         }
 
@@ -2706,26 +2717,75 @@ export default function Home({ initialView = 'landing' }) {
               </tr>
             </thead>
             <tbody class="divide-y divide-slate-800/60 text-xs font-medium text-slate-200">
-              ${items.map((x) => `
-                <tr class="hover:bg-slate-800/50 transition">
-                  <td class="py-3 px-4 text-slate-300 font-mono text-[12px] whitespace-nowrap">${U.fmtDateID(x.date)}</td>
-                  <td class="py-3 px-4">
-                    <div class="flex items-center gap-2">
-                      <span class="w-2.5 h-2.5 rounded-full shrink-0" style="background:${INCOME_CATS[x.category]?.color || '#94A3B8'}"></span>
-                      <span class="font-bold text-white">${x.subcategory}</span>
-                      <span class="text-[11px] text-slate-400">(${INCOME_CATS[x.category]?.label || x.category})</span>
-                    </div>
-                  </td>
-                  <td class="py-3 px-4 text-slate-400 max-w-[200px] truncate">${x.note || '-'}</td>
-                  <td class="py-3 px-4 text-right font-mono font-bold text-emerald-400 text-sm whitespace-nowrap">+ ${U.fmtIDR(x.amount)}</td>
-                  <td class="py-3 px-4 text-center whitespace-nowrap">
-                    ${x.attachmentUrl ? `<button type="button" onclick="event.stopPropagation(); window.__cashApp.openAttachmentPreview('${x.attachmentUrl}')" class="inline-flex items-center gap-1.5 text-[11px] font-bold text-teal-300 bg-teal-500/20 border border-teal-500/30 rounded-lg px-2.5 py-1 hover:bg-teal-500/30 transition" title="Lihat bukti"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/></svg>Bukti</button>` : '<span class="text-slate-500 text-[11px]">-</span>'}
-                  </td>
-                  <td class="py-3 px-4 text-center whitespace-nowrap">
-                    <button type="button" data-edit="${x.id}" class="text-[11px] font-semibold text-slate-300 bg-slate-800 border border-slate-700 hover:border-teal-500/50 hover:text-white rounded-lg px-2.5 py-1 transition">Edit / Detail</button>
-                  </td>
-                </tr>
-              `).join('')}
+              ${groupedArray.map((group, idx) => {
+                if (group.items.length === 1) {
+                  const x = group.items[0];
+                  return `
+                    <tr class="hover:bg-slate-800/50 transition">
+                      <td class="py-3 px-4 text-slate-300 font-mono text-[12px] whitespace-nowrap">${U.fmtDateID(x.date)}</td>
+                      <td class="py-3 px-4">
+                        <div class="flex items-center gap-2">
+                          <span class="w-2.5 h-2.5 rounded-full shrink-0" style="background:${INCOME_CATS[x.category]?.color || '#94A3B8'}"></span>
+                          <span class="font-bold text-white">${x.subcategory}</span>
+                          <span class="text-[11px] text-slate-400">(${INCOME_CATS[x.category]?.label || x.category})</span>
+                        </div>
+                      </td>
+                      <td class="py-3 px-4 text-slate-400 max-w-[200px] truncate">${x.note || '-'}</td>
+                      <td class="py-3 px-4 text-right font-mono font-bold text-emerald-400 text-sm whitespace-nowrap">+ ${U.fmtIDR(x.amount)}</td>
+                      <td class="py-3 px-4 text-center whitespace-nowrap">
+                        ${x.attachmentUrl ? `<button type="button" onclick="event.stopPropagation(); window.__cashApp.openAttachmentPreview('${x.attachmentUrl}')" class="inline-flex items-center gap-1.5 text-[11px] font-bold text-teal-300 bg-teal-500/20 border border-teal-500/30 rounded-lg px-2.5 py-1 hover:bg-teal-500/30 transition" title="Lihat bukti"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/></svg>Bukti</button>` : '<span class="text-slate-500 text-[11px]">-</span>'}
+                      </td>
+                      <td class="py-3 px-4 text-center whitespace-nowrap">
+                        <button type="button" data-edit="${x.id}" class="text-[11px] font-semibold text-slate-300 bg-slate-800 border border-slate-700 hover:border-teal-500/50 hover:text-white rounded-lg px-2.5 py-1 transition">Edit / Detail</button>
+                      </td>
+                    </tr>
+                  `;
+                } else {
+                  const totalAmount = group.items.reduce((s, x) => s + Number(x.amount), 0);
+                  const gid = `inc_grp_${idx}`;
+                  
+                  let parentHtml = `
+                    <tr class="hover:bg-slate-800/80 transition cursor-pointer bg-slate-900/50 border-y border-slate-700" onclick="document.querySelectorAll('.${gid}').forEach(el => el.classList.toggle('hidden')); this.querySelector('.arrow').classList.toggle('rotate-180')">
+                      <td class="py-3 px-4 text-slate-400 font-mono text-[12px] whitespace-nowrap"><span class="inline-flex items-center gap-2"><svg class="arrow transition-transform w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9l6 6 6-6"/></svg> ${group.items.length} Data</span></td>
+                      <td class="py-3 px-4">
+                        <div class="flex items-center gap-2">
+                          <span class="w-2.5 h-2.5 rounded-full shrink-0" style="background:${INCOME_CATS[group.category]?.color || '#94A3B8'}"></span>
+                          <span class="font-bold text-white">${group.subcategory}</span>
+                          <span class="text-[11px] text-slate-400">(${INCOME_CATS[group.category]?.label || group.category})</span>
+                        </div>
+                      </td>
+                      <td class="py-3 px-4 text-slate-400 text-xs">Akumulasi Pemasukan</td>
+                      <td class="py-3 px-4 text-right font-mono font-bold text-emerald-400 text-sm whitespace-nowrap">+ ${U.fmtIDR(totalAmount)}</td>
+                      <td class="py-3 px-4 text-center whitespace-nowrap">
+                        <span class="text-slate-500 text-[11px]">-</span>
+                      </td>
+                      <td class="py-3 px-4 text-center whitespace-nowrap">
+                        <span class="text-[11px] text-slate-500">Klik baris ini</span>
+                      </td>
+                    </tr>
+                  `;
+
+                  const childHtml = group.items.map(x => `
+                    <tr class="${gid} hidden bg-slate-950/40 hover:bg-slate-800/50 transition border-l-2 border-teal-500/50">
+                      <td class="py-2.5 px-4 pl-8 text-slate-400 font-mono text-[11.5px] whitespace-nowrap">${U.fmtDateID(x.date)}</td>
+                      <td class="py-2.5 px-4">
+                        <div class="flex items-center gap-2">
+                           <span class="text-slate-300 text-[11.5px] truncate max-w-[200px]">${x.subcategory}</span>
+                        </div>
+                      </td>
+                      <td class="py-2.5 px-4 text-slate-400 text-[11.5px] max-w-[200px] truncate">${x.note || 'Pemasukan harian'}</td>
+                      <td class="py-2.5 px-4 text-right font-mono font-semibold text-emerald-400/80 text-[12.5px] whitespace-nowrap">+ ${U.fmtIDR(x.amount)}</td>
+                      <td class="py-2.5 px-4 text-center whitespace-nowrap">
+                        ${x.attachmentUrl ? `<button type="button" onclick="event.stopPropagation(); window.__cashApp.openAttachmentPreview('${x.attachmentUrl}')" class="inline-flex items-center gap-1.5 text-[10px] font-bold text-teal-300 bg-teal-500/10 border border-teal-500/20 rounded md px-2 py-0.5 hover:bg-teal-500/30 transition">Bukti</button>` : '<span class="text-slate-600 text-[10px]">-</span>'}
+                      </td>
+                      <td class="py-2.5 px-4 text-center whitespace-nowrap">
+                        <button type="button" data-edit="${x.id}" class="text-[10px] font-semibold text-slate-400 hover:text-white transition">Edit</button>
+                      </td>
+                    </tr>
+                  `).join('');
+                  return parentHtml + childHtml;
+                }
+              }).join('')}
             </tbody>
           </table>
         `;
