@@ -2676,7 +2676,6 @@ export default function Home({ initialView = 'landing' }) {
         const sortDir = this.incomeDateSort || 'desc';
         items = items.slice().sort((a, b) => sortDir === 'asc' ? a.date.localeCompare(b.date) : b.date.localeCompare(a.date));
 
-        const perPageVal = document.getElementById('incomePerPage')?.value || '20';
         const groupedMap = new Map();
         items.forEach(x => {
           const key = `${x.category}_${x.subcategory}`;
