@@ -479,6 +479,23 @@ export default function Home({ initialView = 'landing' }) {
         }
       }
 
+      async batchAdd(itemsArray) {
+        try {
+          const payload = { items: itemsArray.map(this.toBackend) };
+          const response = await this.apiRequest('POST', `${this.endpoint}/batch`, payload);
+          const returned = response?.data ?? response;
+          const createdItems = Array.isArray(returned) ? returned.map(this.fromBackend) : [];
+          this.items.push(...createdItems);
+          await this.persist();
+          return createdItems;
+        } catch (error) {
+          console.warn('Backend batchAdd failed, saving locally:', error);
+          this.items.push(...itemsArray);
+          await this.persist();
+          return itemsArray;
+        }
+      }
+
       async update(id, patch) {
         const index = this.items.findIndex((x) => x.id === id);
         if (index === -1) {
@@ -1585,7 +1602,11 @@ export default function Home({ initialView = 'landing' }) {
           return toast('Pilih bulan target terlebih dahulu', 'err');
         }
 
-        const targetDate = `${targetMonthStr}-01`;
+        const [yrStr, moStr] = targetMonthStr.split('-');
+        const yr = parseInt(yrStr, 10);
+        const mo = parseInt(moStr, 10);
+        const daysInMonth = new Date(yr, mo, 0).getDate();
+
         const rows = document.querySelectorAll('#estRowsContainer tr');
         const items = [];
 
@@ -1599,23 +1620,30 @@ export default function Home({ initialView = 'landing' }) {
 
           if (sub && unitVal > 0) {
             let mult = 1;
-            if (freq === 'harian') mult = 30;
+            if (freq === 'harian') mult = daysInMonth;
             else if (freq === 'mingguan') mult = 4;
             else mult = 1;
 
             const totalAmount = unitVal * mult;
-            const freqLabel = freq === 'harian' ? 'Harian ×30' : freq === 'mingguan' ? 'Mingguan ×4' : 'Bulanan';
+            const dailyAmount = Math.round(totalAmount / daysInMonth);
+            const freqLabel = freq === 'harian' ? `Harian ×${daysInMonth}` : freq === 'mingguan' ? 'Mingguan ×4' : 'Bulanan';
 
-            items.push({
-              category: cat,
-              subcategory: sub,
-              frequency: freq,
-              amount: totalAmount,
-              date: targetDate,
-              status: cat === 'dinamis' ? 'paid' : 'unpaid',
-              isEstimate: isEstVal,
-              note: note ? `${note} (${freqLabel})` : `Estimasi Rencana ${freqLabel}`,
-            });
+            for (let day = 1; day <= daysInMonth; day++) {
+              const dayStr = String(day).padStart(2, '0');
+              const mStr = String(mo).padStart(2, '0');
+              const dateStr = `${yr}-${mStr}-${dayStr}`;
+
+              items.push({
+                category: cat,
+                subcategory: sub,
+                frequency: freq,
+                amount: dailyAmount,
+                date: dateStr,
+                status: cat === 'dinamis' ? 'paid' : 'unpaid',
+                isEstimate: isEstVal,
+                note: note ? `${note} (${freqLabel} - Hari ke-${day})` : `Estimasi Rencana ${freqLabel} (Hari ke-${day})`,
+              });
+            }
           }
         });
 
@@ -1656,7 +1684,8 @@ export default function Home({ initialView = 'landing' }) {
           }
 
           this.closeModal('monthlyEstimateModal');
-          this.ensureRangeIncludes(targetDate);
+          this.ensureRangeIncludes(`${targetMonthStr}-01`);
+          this.ensureRangeIncludes(`${targetMonthStr}-${String(daysInMonth).padStart(2, '0')}`);
           await this.loadAllData();
           toast(`Berhasil menyimpan ${items.length} item perencanaan pengeluaran ke database!`);
         } catch (err) {
@@ -1911,42 +1940,70 @@ export default function Home({ initialView = 'landing' }) {
         const fileInput = document.getElementById('exp_attachment');
         const file = fileInput?.files && fileInput.files[0] ? fileInput.files[0] : null;
 
-        if (file) {
-          // build FormData and send directly so file is uploaded
-          const fd = new FormData();
-          fd.append('category', data.category);
-          fd.append('subcategory', data.subcategory);
-          fd.append('frequency', data.freq);
-          fd.append('amount', String(data.amount));
-          fd.append('date', data.date);
-          fd.append('status', data.status);
-          fd.append('is_estimate', data.isEstimate ? '1' : '0');
-          fd.append('note', data.note || '');
-          fd.append('attachment', file);
+        const isMonthlySplit = document.getElementById('exp_is_monthly_split')?.checked;
 
-          try {
-            if (this.expenses.find(id)) {
-              // Laravel expects PUT for update; use method override
-              fd.append('_method', 'PUT');
-              const resp = await this.expenses.apiRequest('POST', `${this.expenses.endpoint}/${id}`, fd);
-              const returned = resp?.data ?? resp;
-              const converted = this.expenses.fromBackend(returned);
-              const idx = this.expenses.items.findIndex((x) => x.id === id);
-              if (idx !== -1) this.expenses.items[idx] = converted; else this.expenses.items.push(converted);
-              await this.expenses.persist();
-            } else {
-              const resp = await this.expenses.apiRequest('POST', this.expenses.endpoint, fd);
-              const returned = resp?.data ?? resp;
-              const created = this.expenses.fromBackend(returned);
-              this.expenses.items.push(created);
-              await this.expenses.persist();
+        if (isMonthlySplit && !this.expenses.find(id)) {
+          if (file) {
+            toast('Bagi rata 1 bulan saat ini tidak mendukung lampiran file', 'err');
+            return;
+          }
+          const dateObj = new Date(data.date);
+          const y = dateObj.getFullYear();
+          const m = dateObj.getMonth() + 1;
+          const daysInMonth = new Date(y, m, 0).getDate();
+          const dailyAmount = Math.round(data.amount / daysInMonth);
+          
+          const batchItems = [];
+          for (let day = 1; day <= daysInMonth; day++) {
+            const dayStr = String(day).padStart(2, '0');
+            const mStr = String(m).padStart(2, '0');
+            batchItems.push({
+              ...data,
+              id: U.uid(),
+              amount: dailyAmount,
+              date: `${y}-${mStr}-${dayStr}`,
+              note: data.note ? `${data.note} (Hari ke-${day})` : `Harian (Hari ke-${day})`
+            });
+          }
+          await this.expenses.batchAdd(batchItems);
+        } else {
+          if (file) {
+            // build FormData and send directly so file is uploaded
+            const fd = new FormData();
+            fd.append('category', data.category);
+            fd.append('subcategory', data.subcategory);
+            fd.append('frequency', data.freq);
+            fd.append('amount', String(data.amount));
+            fd.append('date', data.date);
+            fd.append('status', data.status);
+            fd.append('is_estimate', data.isEstimate ? '1' : '0');
+            fd.append('note', data.note || '');
+            fd.append('attachment', file);
+
+            try {
+              if (this.expenses.find(id)) {
+                // Laravel expects PUT for update; use method override
+                fd.append('_method', 'PUT');
+                const resp = await this.expenses.apiRequest('POST', `${this.expenses.endpoint}/${id}`, fd);
+                const returned = resp?.data ?? resp;
+                const converted = this.expenses.fromBackend(returned);
+                const idx = this.expenses.items.findIndex((x) => x.id === id);
+                if (idx !== -1) this.expenses.items[idx] = converted; else this.expenses.items.push(converted);
+                await this.expenses.persist();
+              } else {
+                const resp = await this.expenses.apiRequest('POST', this.expenses.endpoint, fd);
+                const returned = resp?.data ?? resp;
+                const created = this.expenses.fromBackend(returned);
+                this.expenses.items.push(created);
+                await this.expenses.persist();
+              }
+            } catch (err) {
+              console.warn('Upload failed, falling back to local save', err);
+              if (this.expenses.find(id)) await this.expenses.update(id, data); else await this.expenses.add(data);
             }
-          } catch (err) {
-            console.warn('Upload failed, falling back to local save', err);
+          } else {
             if (this.expenses.find(id)) await this.expenses.update(id, data); else await this.expenses.add(data);
           }
-        } else {
-          if (this.expenses.find(id)) await this.expenses.update(id, data); else await this.expenses.add(data);
         }
         this.closeModal('expenseModal');
         this.ensureRangeIncludes(data.date);
@@ -2470,18 +2527,29 @@ export default function Home({ initialView = 'landing' }) {
         const sortDir = this.expenseDateSort || 'desc';
         items = items.slice().sort((a, b) => sortDir === 'asc' ? a.date.localeCompare(b.date) : b.date.localeCompare(a.date));
 
-        const perPageVal = document.getElementById('expensePerPage')?.value || '20';
-        if (perPageVal !== 'all') {
-          const limit = parseInt(perPageVal, 10);
-          if (!isNaN(limit) && limit > 0) {
-            items = items.slice(0, limit);
-          }
-        }
-
         const actual = this.expenses.inRange(this.range.start, this.range.end).filter((x) => !x.isEstimate);
         document.getElementById('totTetap').textContent = U.fmtIDR(actual.filter((x) => x.category === 'tetap').reduce((s, x) => s + Number(x.amount), 0));
         document.getElementById('totBerkala').textContent = U.fmtIDR(actual.filter((x) => x.category === 'berkala').reduce((s, x) => s + Number(x.amount), 0));
         document.getElementById('totDinamis').textContent = U.fmtIDR(actual.filter((x) => x.category === 'dinamis').reduce((s, x) => s + Number(x.amount), 0));
+
+        const groupedMap = new Map();
+        items.forEach(x => {
+          const key = `${x.category}_${x.subcategory}`;
+          if (!groupedMap.has(key)) {
+            groupedMap.set(key, { category: x.category, subcategory: x.subcategory, items: [] });
+          }
+          groupedMap.get(key).items.push(x);
+        });
+        let groupedArray = Array.from(groupedMap.values());
+
+        const perPageVal = document.getElementById('expensePerPage')?.value || '20';
+        if (perPageVal !== 'all') {
+          const limit = parseInt(perPageVal, 10);
+          if (!isNaN(limit) && limit > 0) {
+            groupedArray = groupedArray.slice(0, limit);
+          }
+        }
+
         const list = document.getElementById('expenseList');
         if (!list) return;
         list.className = "block w-full min-w-0 overflow-x-auto rounded-2xl border border-slate-800 bg-slate-900/90 backdrop-blur-md shadow-2xl";
@@ -2504,29 +2572,85 @@ export default function Home({ initialView = 'landing' }) {
               </tr>
             </thead>
             <tbody class="divide-y divide-slate-800/60 text-xs font-medium text-slate-200">
-              ${items.map((x) => `
-                <tr class="hover:bg-slate-800/50 transition">
-                  <td class="py-3 px-4 text-slate-300 font-mono text-[12px] whitespace-nowrap">${U.fmtDateID(x.date)}</td>
-                  <td class="py-3 px-4">
-                    <div class="flex items-center gap-2">
-                      <span class="w-2.5 h-2.5 rounded-full shrink-0" style="background:${EXPENSE_CATS[x.category]?.color || '#94A3B8'}"></span>
-                      <span class="font-bold text-white">${x.subcategory}</span>
-                      ${x.isEstimate ? '<span class="text-[10px] font-bold text-amber-300 bg-amber-500/20 border border-amber-500/30 rounded-full px-2 py-0.5">Estimasi</span>' : ''}
-                      <span class="text-[11px] text-slate-400">(${EXPENSE_CATS[x.category]?.label || x.category})</span>
-                    </div>
-                  </td>
-                  <td class="py-3 px-4 whitespace-nowrap">
-                    ${x.category !== 'dinamis' ? (x.status === 'paid' ? '<span class="text-[11px] font-bold text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 px-2.5 py-0.5 rounded-full">✓ Lunas</span>' : '<span class="text-[11px] font-bold text-rose-400 bg-rose-500/10 border border-rose-500/20 px-2.5 py-0.5 rounded-full">Belum Bayar</span>') : '<span class="text-slate-500">-</span>'}
-                  </td>
-                  <td class="py-3 px-4 text-right font-mono font-bold text-rose-400 text-sm whitespace-nowrap">- ${U.fmtIDR(x.amount)}</td>
-                  <td class="py-3 px-4 text-center whitespace-nowrap">
-                    ${x.attachmentUrl ? `<button type="button" onclick="event.stopPropagation(); window.__cashApp.openAttachmentPreview('${x.attachmentUrl}')" class="inline-flex items-center gap-1.5 text-[11px] font-bold text-teal-300 bg-teal-500/20 border border-teal-500/30 rounded-lg px-2.5 py-1 hover:bg-teal-500/30 transition" title="Lihat bukti"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/></svg>Bukti</button>` : '<span class="text-slate-500 text-[11px]">-</span>'}
-                  </td>
-                  <td class="py-3 px-4 text-center whitespace-nowrap">
-                    <button type="button" data-edit="${x.id}" class="text-[11px] font-semibold text-slate-300 bg-slate-800 border border-slate-700 hover:border-teal-500/50 hover:text-white rounded-lg px-2.5 py-1 transition">Edit / Detail</button>
-                  </td>
-                </tr>
-              `).join('')}
+              ${groupedArray.map((group, idx) => {
+                if (group.items.length === 1) {
+                  const x = group.items[0];
+                  return `
+                    <tr class="hover:bg-slate-800/50 transition">
+                      <td class="py-3 px-4 text-slate-300 font-mono text-[12px] whitespace-nowrap">${U.fmtDateID(x.date)}</td>
+                      <td class="py-3 px-4">
+                        <div class="flex items-center gap-2">
+                          <span class="w-2.5 h-2.5 rounded-full shrink-0" style="background:${EXPENSE_CATS[x.category]?.color || '#94A3B8'}"></span>
+                          <span class="font-bold text-white">${x.subcategory}</span>
+                          ${x.isEstimate ? '<span class="text-[10px] font-bold text-amber-300 bg-amber-500/20 border border-amber-500/30 rounded-full px-2 py-0.5">Estimasi</span>' : ''}
+                          <span class="text-[11px] text-slate-400">(${EXPENSE_CATS[x.category]?.label || x.category})</span>
+                        </div>
+                      </td>
+                      <td class="py-3 px-4 whitespace-nowrap">
+                        ${x.category !== 'dinamis' ? (x.status === 'paid' ? '<span class="text-[11px] font-bold text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 px-2.5 py-0.5 rounded-full">✓ Lunas</span>' : '<span class="text-[11px] font-bold text-rose-400 bg-rose-500/10 border border-rose-500/20 px-2.5 py-0.5 rounded-full">Belum Bayar</span>') : '<span class="text-slate-500">-</span>'}
+                      </td>
+                      <td class="py-3 px-4 text-right font-mono font-bold text-rose-400 text-sm whitespace-nowrap">- ${U.fmtIDR(x.amount)}</td>
+                      <td class="py-3 px-4 text-center whitespace-nowrap">
+                        ${x.attachmentUrl ? `<button type="button" onclick="event.stopPropagation(); window.__cashApp.openAttachmentPreview('${x.attachmentUrl}')" class="inline-flex items-center gap-1.5 text-[11px] font-bold text-teal-300 bg-teal-500/20 border border-teal-500/30 rounded-lg px-2.5 py-1 hover:bg-teal-500/30 transition" title="Lihat bukti"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/></svg>Bukti</button>` : '<span class="text-slate-500 text-[11px]">-</span>'}
+                      </td>
+                      <td class="py-3 px-4 text-center whitespace-nowrap">
+                        <button type="button" data-edit="${x.id}" class="text-[11px] font-semibold text-slate-300 bg-slate-800 border border-slate-700 hover:border-teal-500/50 hover:text-white rounded-lg px-2.5 py-1 transition">Edit / Detail</button>
+                      </td>
+                    </tr>
+                  `;
+                } else {
+                  const totalAmount = group.items.reduce((s, x) => s + Number(x.amount), 0);
+                  const isAllPaid = group.items.every(x => x.category === 'dinamis' || x.status === 'paid');
+                  const hasEstimate = group.items.some(x => x.isEstimate);
+                  const gid = `grp_${idx}`;
+                  
+                  let parentHtml = `
+                    <tr class="hover:bg-slate-800/80 transition cursor-pointer bg-slate-900/50 border-y border-slate-700" onclick="document.querySelectorAll('.${gid}').forEach(el => el.classList.toggle('hidden')); this.querySelector('.arrow').classList.toggle('rotate-180')">
+                      <td class="py-3 px-4 text-slate-400 font-mono text-[12px] whitespace-nowrap"><span class="inline-flex items-center gap-2"><svg class="arrow transition-transform w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9l6 6 6-6"/></svg> ${group.items.length} Data</span></td>
+                      <td class="py-3 px-4">
+                        <div class="flex items-center gap-2">
+                          <span class="w-2.5 h-2.5 rounded-full shrink-0" style="background:${EXPENSE_CATS[group.category]?.color || '#94A3B8'}"></span>
+                          <span class="font-bold text-white">${group.subcategory}</span>
+                          ${hasEstimate ? '<span class="text-[10px] font-bold text-amber-300 bg-amber-500/20 border border-amber-500/30 rounded-full px-2 py-0.5">Estimasi</span>' : ''}
+                          <span class="text-[11px] text-slate-400">(${EXPENSE_CATS[group.category]?.label || group.category})</span>
+                        </div>
+                      </td>
+                      <td class="py-3 px-4 whitespace-nowrap">
+                        ${group.category !== 'dinamis' ? (isAllPaid ? '<span class="text-[11px] font-bold text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 px-2.5 py-0.5 rounded-full">✓ Semua Lunas</span>' : '<span class="text-[11px] font-bold text-amber-400 bg-amber-500/10 border border-amber-500/20 px-2.5 py-0.5 rounded-full">Ada Tunggakan</span>') : '<span class="text-slate-500">-</span>'}
+                      </td>
+                      <td class="py-3 px-4 text-right font-mono font-bold text-rose-400 text-sm whitespace-nowrap">- ${U.fmtIDR(totalAmount)}</td>
+                      <td class="py-3 px-4 text-center whitespace-nowrap">
+                        <span class="text-slate-500 text-[11px]">-</span>
+                      </td>
+                      <td class="py-3 px-4 text-center whitespace-nowrap">
+                        <span class="text-[11px] text-slate-500">Klik baris ini</span>
+                      </td>
+                    </tr>
+                  `;
+
+                  const childHtml = group.items.map(x => `
+                    <tr class="${gid} hidden bg-slate-950/40 hover:bg-slate-800/50 transition border-l-2 border-slate-700">
+                      <td class="py-2.5 px-4 pl-8 text-slate-400 font-mono text-[11.5px] whitespace-nowrap">${U.fmtDateID(x.date)}</td>
+                      <td class="py-2.5 px-4">
+                        <div class="flex items-center gap-2">
+                           <span class="text-slate-300 text-[11.5px] truncate max-w-[200px]">${x.note || 'Pengeluaran harian'}</span>
+                        </div>
+                      </td>
+                      <td class="py-2.5 px-4 whitespace-nowrap">
+                        ${x.category !== 'dinamis' ? (x.status === 'paid' ? '<span class="text-[10px] font-bold text-emerald-500">Lunas</span>' : '<span class="text-[10px] font-bold text-rose-500">Blm Bayar</span>') : '<span class="text-slate-600">-</span>'}
+                      </td>
+                      <td class="py-2.5 px-4 text-right font-mono font-semibold text-rose-400/80 text-[12.5px] whitespace-nowrap">- ${U.fmtIDR(x.amount)}</td>
+                      <td class="py-2.5 px-4 text-center whitespace-nowrap">
+                        ${x.attachmentUrl ? `<button type="button" onclick="event.stopPropagation(); window.__cashApp.openAttachmentPreview('${x.attachmentUrl}')" class="inline-flex items-center gap-1.5 text-[10px] font-bold text-teal-300 bg-teal-500/10 border border-teal-500/20 rounded md px-2 py-0.5 hover:bg-teal-500/30 transition">Bukti</button>` : '<span class="text-slate-600 text-[10px]">-</span>'}
+                      </td>
+                      <td class="py-2.5 px-4 text-center whitespace-nowrap">
+                        <button type="button" data-edit="${x.id}" class="text-[10px] font-semibold text-slate-400 hover:text-white transition">Edit</button>
+                      </td>
+                    </tr>
+                  `).join('');
+                  return parentHtml + childHtml;
+                }
+              }).join('')}
             </tbody>
           </table>
         `;
@@ -4150,10 +4274,14 @@ export default function Home({ initialView = 'landing' }) {
           <option value="paid">Sudah Dibayar</option>
         </select>
       </div>
-      <div className="flex items-end pb-2.5">
+      <div className="flex flex-col gap-2 pt-1 pb-1 justify-center">
         <label className="flex items-center gap-2 text-[12.5px] text-slate-300 cursor-pointer">
           <input id="exp_estimate" type="checkbox" className="w-4 h-4 rounded border-slate-800 accent-teal-500 bg-slate-950" />
           Estimasi (belum aktual)
+        </label>
+        <label className="flex items-center gap-2 text-[12.5px] text-slate-300 cursor-pointer" title="Bagi rata nominal untuk seluruh hari di bulan terpilih">
+          <input id="exp_is_monthly_split" type="checkbox" className="w-4 h-4 rounded border-slate-800 accent-teal-500 bg-slate-950" />
+          Bagi rata 1 bulan (Otomatis)
         </label>
       </div>
     </div>
