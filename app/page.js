@@ -2220,8 +2220,8 @@ export default function Home({ initialView = 'landing' }) {
         }
       }
       currentExpenses() {
-        if (!this.isFilteredByRange) return this.expenses.items.filter((x) => !x.isEstimate);
-        return this.expenses.inRange(this.range.start, this.range.end).filter((x) => !x.isEstimate);
+        if (!this.isFilteredByRange) return this.expenses.items;
+        return this.expenses.inRange(this.range.start, this.range.end);
       }
       currentIncomes() {
         if (!this.isFilteredByRange) return this.incomes.items;
@@ -2584,10 +2584,10 @@ export default function Home({ initialView = 'landing' }) {
         const sortDir = this.expenseDateSort || 'desc';
         items = items.slice().sort((a, b) => sortDir === 'asc' ? a.date.localeCompare(b.date) : b.date.localeCompare(a.date));
 
-        const actual = this.expenses.inRange(this.range.start, this.range.end).filter((x) => !x.isEstimate);
-        document.getElementById('totTetap').textContent = U.fmtIDR(actual.filter((x) => x.category === 'tetap').reduce((s, x) => s + Number(x.amount), 0));
-        document.getElementById('totBerkala').textContent = U.fmtIDR(actual.filter((x) => x.category === 'berkala').reduce((s, x) => s + Number(x.amount), 0));
-        document.getElementById('totDinamis').textContent = U.fmtIDR(actual.filter((x) => x.category === 'dinamis').reduce((s, x) => s + Number(x.amount), 0));
+        const rangeItems = this.expenses.inRange(this.range.start, this.range.end);
+        document.getElementById('totTetap').textContent = U.fmtIDR(rangeItems.filter((x) => x.category === 'tetap').reduce((s, x) => s + Number(x.amount), 0));
+        document.getElementById('totBerkala').textContent = U.fmtIDR(rangeItems.filter((x) => x.category === 'berkala').reduce((s, x) => s + Number(x.amount), 0));
+        document.getElementById('totDinamis').textContent = U.fmtIDR(rangeItems.filter((x) => x.category === 'dinamis').reduce((s, x) => s + Number(x.amount), 0));
 
         const groupedMap = new Map();
         items.forEach(x => {
@@ -3081,7 +3081,7 @@ export default function Home({ initialView = 'landing' }) {
         const elExpRatio = document.getElementById('repExpenseRatio');
         if (elExpRatio) elExpRatio.textContent = `${Math.round(expRatio)}%`;
 
-        const avgMonthlyExp = (Aggregator.total(this.expenses.items.filter((x) => !x.isEstimate)) / Math.max(1, new Set(this.expenses.items.map((x) => U.monthKey(x.date))).size)) || 0;
+        const avgMonthlyExp = (Aggregator.total(this.expenses.items) / Math.max(1, new Set(this.expenses.items.map((x) => U.monthKey(x.date))).size)) || 0;
         const daruratTotal = this.allocations.items.filter((x) => x.category === 'darurat').reduce((s, x) => s + Number(x.amount || 0), 0);
         const monthsCovered = avgMonthlyExp > 0 ? (daruratTotal / avgMonthlyExp).toFixed(1) : '0';
 
@@ -3095,7 +3095,7 @@ export default function Home({ initialView = 'landing' }) {
           const d = new Date(endD.getFullYear(), endD.getMonth() - i, 1);
           monthKeys.push(U.iso(d).slice(0, 7));
         }
-        const expByMonth = Aggregator.byMonth(this.expenses.items.filter((x) => !x.isEstimate));
+        const expByMonth = Aggregator.byMonth(this.expenses.items);
         const incByMonth = Aggregator.byMonth(this.incomes.items);
         const ctx = document.getElementById('chartRepTrend');
         if (ctx) {
