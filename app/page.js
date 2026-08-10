@@ -1437,7 +1437,8 @@ export default function Home({ initialView = 'landing' }) {
             }
             return null;
           }
-          return await res.json();
+          const json = await res.json();
+          return json.data || json.user || json;
         } catch (err) {
           return null;
         }
