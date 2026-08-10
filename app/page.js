@@ -1875,23 +1875,51 @@ export default function Home({ initialView = 'landing' }) {
           document.getElementById('alc_date').value = U.todayStr();
           if (document.getElementById('alc_target')) document.getElementById('alc_target').value = '';
           this.showExistingAttachment('alcAttachPreview', null);
+          let isUpdatingCatVisual = false;
+          const updateAlcHelpVisual = (catKey) => {
+            const def = ALLOCATION_CATS[catKey];
+            if (def) {
+              const help = document.getElementById('alc_cat_help');
+              if (help) {
+                help.innerHTML = `
+                  <div class="space-y-1">
+                    <p class="font-bold text-white text-[12px] flex items-center gap-1.5">
+                      <span class="w-2 h-2 rounded-full shrink-0" style="background:${def.color}"></span>
+                      ${def.label}
+                    </p>
+                    <p class="text-[11px] text-slate-300">${def.description}</p>
+                    <p class="text-[10.5px] text-slate-400"><strong>Contoh:</strong> ${def.examples}</p>
+                    <p class="text-[10.5px] text-amber-300 font-medium">${def.tips}</p>
+                  </div>`;
+              }
+            }
+          };
+
           const checkExistingTarget = () => {
-            const cat = document.getElementById('alc_category')?.value;
             const sub = (document.getElementById('alc_sub')?.value || '').trim();
             const targetEl = document.getElementById('alc_target');
             const helpEl = document.getElementById('alc_target_help');
             const currId = document.getElementById('alc_id')?.value;
             
-            if (!cat || !sub || !targetEl) return;
+            if (!sub || !targetEl) return;
 
-            const existing = this.allocations.items.find(x => x.category === cat && (x.subcategory || '').toLowerCase() === sub.toLowerCase() && Number(x.targetAmount || 0) > 0 && x.id !== currId);
+            const existing = this.allocations.items.find(
+              x => (x.subcategory || '').toLowerCase() === sub.toLowerCase() && 
+              Number(x.targetAmount || 0) > 0 && 
+              x.id !== currId
+            );
 
             if (existing) {
+              const catSelect = document.getElementById('alc_category');
+              if (catSelect && catSelect.value !== existing.category) {
+                catSelect.value = existing.category;
+                updateAlcHelpVisual(existing.category);
+              }
               targetEl.value = U.formatNumberID(existing.targetAmount);
               targetEl.disabled = true;
               targetEl.classList.add('bg-slate-900', 'text-slate-400', 'cursor-not-allowed');
               if (helpEl) {
-                helpEl.textContent = '🔒 Target dana terkunci (otomatis disamakan dengan target yang sudah ada).';
+                helpEl.textContent = `🔒 Target dana terkunci (otomatis disamakan dengan target Rp ${U.fmtIDR(existing.targetAmount)} pada ${ALLOCATION_CATS[existing.category]?.label || existing.category}).`;
                 helpEl.classList.remove('hidden');
               }
             } else {
@@ -1907,22 +1935,13 @@ export default function Home({ initialView = 'landing' }) {
             const catKey = document.getElementById('alc_category')?.value || 'darurat';
             const def = ALLOCATION_CATS[catKey];
             if (def) {
+              const defSubs = def.subs || [];
+              const userSubs = this.allocations.items.map(x => x.subcategory).filter(Boolean);
+              const allSubs = Array.from(new Set([...defSubs, ...userSubs]));
               const subEl = document.getElementById('alc_sub_list');
-              if (subEl) subEl.innerHTML = def.subs.map((s) => `<option value="${s}">`).join('');
-              const help = document.getElementById('alc_cat_help');
-              if (help) {
-                help.innerHTML = `
-                  <div class="space-y-1">
-                    <p class="font-bold text-white text-[12px] flex items-center gap-1.5">
-                      <span class="w-2 h-2 rounded-full shrink-0" style="background:${def.color}"></span>
-                      ${def.label}
-                    </p>
-                    <p class="text-[11px] text-slate-300">${def.description}</p>
-                    <p class="text-[10.5px] text-slate-400"><strong>Contoh:</strong> ${def.examples}</p>
-                    <p class="text-[10.5px] text-amber-300 font-medium">${def.tips}</p>
-                  </div>`;
-              }
+              if (subEl) subEl.innerHTML = allSubs.map((s) => `<option value="${s}">`).join('');
             }
+            updateAlcHelpVisual(catKey);
             checkExistingTarget();
           };
           const alcCatSelect = document.getElementById('alc_category');
