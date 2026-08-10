@@ -1875,6 +1875,34 @@ export default function Home({ initialView = 'landing' }) {
           document.getElementById('alc_date').value = U.todayStr();
           if (document.getElementById('alc_target')) document.getElementById('alc_target').value = '';
           this.showExistingAttachment('alcAttachPreview', null);
+          const checkExistingTarget = () => {
+            const cat = document.getElementById('alc_category')?.value;
+            const sub = (document.getElementById('alc_sub')?.value || '').trim();
+            const targetEl = document.getElementById('alc_target');
+            const helpEl = document.getElementById('alc_target_help');
+            const currId = document.getElementById('alc_id')?.value;
+            
+            if (!cat || !sub || !targetEl) return;
+
+            const existing = this.allocations.items.find(x => x.category === cat && (x.subcategory || '').toLowerCase() === sub.toLowerCase() && Number(x.targetAmount || 0) > 0 && x.id !== currId);
+
+            if (existing) {
+              targetEl.value = U.formatNumberID(existing.targetAmount);
+              targetEl.disabled = true;
+              targetEl.classList.add('bg-slate-900', 'text-slate-400', 'cursor-not-allowed');
+              if (helpEl) {
+                helpEl.textContent = '🔒 Target dana terkunci (otomatis disamakan dengan target yang sudah ada).';
+                helpEl.classList.remove('hidden');
+              }
+            } else {
+              if (!currId) {
+                targetEl.disabled = false;
+                targetEl.classList.remove('bg-slate-900', 'text-slate-400', 'cursor-not-allowed');
+              }
+              if (helpEl) helpEl.classList.add('hidden');
+            }
+          };
+
           const updateAlcHelp = () => {
             const catKey = document.getElementById('alc_category')?.value || 'darurat';
             const def = ALLOCATION_CATS[catKey];
@@ -1895,9 +1923,17 @@ export default function Home({ initialView = 'landing' }) {
                   </div>`;
               }
             }
+            checkExistingTarget();
           };
           const alcCatSelect = document.getElementById('alc_category');
           if (alcCatSelect) alcCatSelect.onchange = updateAlcHelp;
+
+          const alcSubInput = document.getElementById('alc_sub');
+          if (alcSubInput) {
+            alcSubInput.oninput = checkExistingTarget;
+            alcSubInput.onchange = checkExistingTarget;
+          }
+
           updateAlcHelp();
           if (existingId) {
             const it = this.allocations.find(existingId);
@@ -1910,12 +1946,14 @@ export default function Home({ initialView = 'landing' }) {
               if (document.getElementById('alc_target')) document.getElementById('alc_target').value = U.formatNumberID(it.targetAmount || '');
               document.getElementById('alc_date').value = it.date;
               document.getElementById('alc_note').value = it.note || '';
+              checkExistingTarget();
               this.showExistingAttachment('alcAttachPreview', it.attachmentUrl);
               const alcDelBtn = document.getElementById('alc_delete');
               if (alcDelBtn) { alcDelBtn.classList.remove('hidden'); alcDelBtn.style.display = 'flex'; }
             }
           } else {
             this.showExistingAttachment('alcAttachPreview', null);
+            checkExistingTarget();
           }
           this.openModal('allocationModal');
         }
@@ -2847,18 +2885,28 @@ export default function Home({ initialView = 'landing' }) {
         const list = document.getElementById('allocationList');
         if (!list) return;
         const sortDir = this.allocationDateSort || 'desc';
-        let sorted = consolidated.slice().sort((a, b) => sortDir === 'asc' ? a.date.localeCompare(b.date) : b.date.localeCompare(a.date));
+        items = items.slice().sort((a, b) => sortDir === 'asc' ? a.date.localeCompare(b.date) : b.date.localeCompare(a.date));
+
+        const groupedMap = new Map();
+        items.forEach(x => {
+          const key = `${x.category}_${x.subcategory}`;
+          if (!groupedMap.has(key)) {
+            groupedMap.set(key, { category: x.category, subcategory: x.subcategory, items: [] });
+          }
+          groupedMap.get(key).items.push(x);
+        });
+        let groupedArray = Array.from(groupedMap.values());
 
         const perPageVal = document.getElementById('allocationPerPage')?.value || '20';
         if (perPageVal !== 'all') {
           const limit = parseInt(perPageVal, 10);
           if (!isNaN(limit) && limit > 0) {
-            sorted = sorted.slice(0, limit);
+            groupedArray = groupedArray.slice(0, limit);
           }
         }
         list.className = "block w-full min-w-0 overflow-x-auto rounded-2xl border border-slate-800 bg-slate-900/90 backdrop-blur-md shadow-2xl";
 
-        if (!sorted.length) {
+        if (!groupedArray.length) {
           list.innerHTML = `<p class="text-sm text-slate-400 py-10 text-center">Belum ada data dana alokasi pada periode ini.</p>`;
           return;
         }
@@ -2876,44 +2924,103 @@ export default function Home({ initialView = 'landing' }) {
               </tr>
             </thead>
             <tbody class="divide-y divide-slate-800/60 text-xs font-medium text-slate-200">
-              ${sorted.map((x) => {
-                const targetVal = Number(x.targetAmount || 0);
-                const amtVal = Number(x.amount || 0);
-                const remVal = targetVal > 0 ? Math.max(0, targetVal - amtVal) : 0;
-                const pctVal = targetVal > 0 ? Math.min(100, Math.round((amtVal / targetVal) * 100)) : 0;
+              ${groupedArray.map((group, idx) => {
+                if (group.items.length === 1) {
+                  const x = group.items[0];
+                  const targetVal = Number(x.targetAmount || 0);
+                  const amtVal = Number(x.amount || 0);
+                  const pctVal = targetVal > 0 ? Math.min(100, Math.round((amtVal / targetVal) * 100)) : 0;
+                  const progressHtml = targetVal > 0
+                    ? `<div class="space-y-1 min-w-[180px]">
+                        <div class="flex items-center justify-between text-[11px]">
+                          <span class="text-slate-400">Target: <strong class="text-white font-mono">${U.fmtIDR(targetVal)}</strong></span>
+                          <span class="font-bold ${pctVal >= 100 ? 'text-emerald-400' : 'text-amber-400'}">${pctVal}%</span>
+                        </div>
+                        <div class="w-full bg-slate-950 border border-slate-800 rounded-full h-1.5 overflow-hidden">
+                          <div class="h-full rounded-full transition-all duration-500 ${pctVal >= 100 ? 'bg-gradient-to-r from-emerald-500 to-teal-400' : 'bg-gradient-to-r from-amber-500 to-teal-500'}" style="width: ${pctVal}%"></div>
+                        </div>
+                      </div>`
+                    : `<span class="text-slate-500 text-[11px]">-</span>`;
 
-                const progressHtml = targetVal > 0
-                  ? `<div class="space-y-1 min-w-[180px]">
-                      <div class="flex items-center justify-between text-[11px]">
-                        <span class="text-slate-400">Target: <strong class="text-white font-mono">${U.fmtIDR(targetVal)}</strong></span>
-                        <span class="font-bold ${pctVal >= 100 ? 'text-emerald-400' : 'text-amber-400'}">${pctVal}%</span>
-                      </div>
-                      <div class="w-full bg-slate-950 border border-slate-800 rounded-full h-1.5 overflow-hidden">
-                        <div class="h-full rounded-full transition-all duration-500 ${pctVal >= 100 ? 'bg-gradient-to-r from-emerald-500 to-teal-400' : 'bg-gradient-to-r from-amber-500 to-teal-500'}" style="width: ${pctVal}%"></div>
-                      </div>
-                    </div>`
-                  : `<span class="text-slate-500 text-[11px]">-</span>`;
+                  return `
+                    <tr class="hover:bg-slate-800/50 transition">
+                      <td class="py-3 px-4 text-slate-300 font-mono text-[12px] whitespace-nowrap">${U.fmtDateID(x.date)}</td>
+                      <td class="py-3 px-4">
+                        <div class="flex items-center gap-2">
+                          <span class="w-2.5 h-2.5 rounded-full shrink-0" style="background:${ALLOCATION_CATS[x.category]?.color || '#94A3B8'}"></span>
+                          <span class="font-bold text-white">${x.subcategory}</span>
+                          <span class="text-[11px] text-slate-400">(${ALLOCATION_CATS[x.category]?.label || x.category})</span>
+                        </div>
+                      </td>
+                      <td class="py-3 px-4">${progressHtml}</td>
+                      <td class="py-3 px-4 text-right font-mono font-bold text-amber-400 text-sm whitespace-nowrap">${U.fmtIDR(x.amount)}</td>
+                      <td class="py-3 px-4 text-center whitespace-nowrap">
+                        ${x.attachmentUrl ? `<button type="button" onclick="event.stopPropagation(); window.__cashApp.openAttachmentPreview('${x.attachmentUrl}')" class="inline-flex items-center gap-1.5 text-[11px] font-bold text-teal-300 bg-teal-500/20 border border-teal-500/30 rounded-lg px-2.5 py-1 hover:bg-teal-500/30 transition" title="Lihat bukti"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/></svg>Bukti</button>` : '<span class="text-slate-500 text-[11px]">-</span>'}
+                      </td>
+                      <td class="py-3 px-4 text-center whitespace-nowrap">
+                        <button type="button" data-edit="${x.id}" class="text-[11px] font-semibold text-slate-300 bg-slate-800 border border-slate-700 hover:border-teal-500/50 hover:text-white rounded-lg px-2.5 py-1 transition">Edit / Detail</button>
+                      </td>
+                    </tr>
+                  `;
+                } else {
+                  const totalAmount = group.items.reduce((s, x) => s + Number(x.amount), 0);
+                  const maxTarget = group.items.reduce((m, x) => Math.max(m, Number(x.targetAmount || 0)), 0);
+                  const pctVal = maxTarget > 0 ? Math.min(100, Math.round((totalAmount / maxTarget) * 100)) : 0;
+                  const gid = `alc_grp_${idx}`;
 
-                return `
-                  <tr class="hover:bg-slate-800/50 transition">
-                    <td class="py-3 px-4 text-slate-300 font-mono text-[12px] whitespace-nowrap">${U.fmtDateID(x.date)}</td>
-                    <td class="py-3 px-4">
-                      <div class="flex items-center gap-2">
-                        <span class="w-2.5 h-2.5 rounded-full shrink-0" style="background:${ALLOCATION_CATS[x.category]?.color || '#94A3B8'}"></span>
-                        <span class="font-bold text-white">${x.subcategory}</span>
-                        <span class="text-[11px] text-slate-400">(${ALLOCATION_CATS[x.category]?.label || x.category})</span>
-                      </div>
-                    </td>
-                    <td class="py-3 px-4">${progressHtml}</td>
-                    <td class="py-3 px-4 text-right font-mono font-bold text-amber-400 text-sm whitespace-nowrap">${U.fmtIDR(x.amount)}</td>
-                    <td class="py-3 px-4 text-center whitespace-nowrap">
-                      ${x.attachmentUrl ? `<button type="button" onclick="event.stopPropagation(); window.__cashApp.openAttachmentPreview('${x.attachmentUrl}')" class="inline-flex items-center gap-1.5 text-[11px] font-bold text-teal-300 bg-teal-500/20 border border-teal-500/30 rounded-lg px-2.5 py-1 hover:bg-teal-500/30 transition" title="Lihat bukti"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/></svg>Bukti</button>` : '<span class="text-slate-500 text-[11px]">-</span>'}
-                    </td>
-                    <td class="py-3 px-4 text-center whitespace-nowrap">
-                      <button type="button" data-edit="${x.id}" class="text-[11px] font-semibold text-slate-300 bg-slate-800 border border-slate-700 hover:border-teal-500/50 hover:text-white rounded-lg px-2.5 py-1 transition">Edit / Detail</button>
-                    </td>
-                  </tr>
-                `;
+                  const progressHtml = maxTarget > 0
+                    ? `<div class="space-y-1 min-w-[180px]">
+                        <div class="flex items-center justify-between text-[11px]">
+                          <span class="text-slate-400">Target: <strong class="text-white font-mono">${U.fmtIDR(maxTarget)}</strong></span>
+                          <span class="font-bold ${pctVal >= 100 ? 'text-emerald-400' : 'text-amber-400'}">${pctVal}%</span>
+                        </div>
+                        <div class="w-full bg-slate-950 border border-slate-800 rounded-full h-1.5 overflow-hidden">
+                          <div class="h-full rounded-full transition-all duration-500 ${pctVal >= 100 ? 'bg-gradient-to-r from-emerald-500 to-teal-400' : 'bg-gradient-to-r from-amber-500 to-teal-500'}" style="width: ${pctVal}%"></div>
+                        </div>
+                      </div>`
+                    : `<span class="text-slate-500 text-[11px]">-</span>`;
+
+                  let parentHtml = `
+                    <tr class="hover:bg-slate-800/80 transition cursor-pointer bg-slate-900/50 border-y border-slate-700" onclick="document.querySelectorAll('.${gid}').forEach(el => el.classList.toggle('hidden')); this.querySelector('.arrow').classList.toggle('rotate-180')">
+                      <td class="py-3 px-4 text-slate-400 font-mono text-[12px] whitespace-nowrap"><span class="inline-flex items-center gap-2"><svg class="arrow transition-transform w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9l6 6 6-6"/></svg> ${group.items.length} Data</span></td>
+                      <td class="py-3 px-4">
+                        <div class="flex items-center gap-2">
+                          <span class="w-2.5 h-2.5 rounded-full shrink-0" style="background:${ALLOCATION_CATS[group.category]?.color || '#94A3B8'}"></span>
+                          <span class="font-bold text-white">${group.subcategory}</span>
+                          <span class="text-[11px] text-slate-400">(${ALLOCATION_CATS[group.category]?.label || group.category})</span>
+                        </div>
+                      </td>
+                      <td class="py-3 px-4">${progressHtml}</td>
+                      <td class="py-3 px-4 text-right font-mono font-bold text-amber-400 text-sm whitespace-nowrap">${U.fmtIDR(totalAmount)}</td>
+                      <td class="py-3 px-4 text-center whitespace-nowrap">
+                        <span class="text-slate-500 text-[11px]">-</span>
+                      </td>
+                      <td class="py-3 px-4 text-center whitespace-nowrap">
+                        <span class="text-[11px] text-slate-500">Klik baris ini</span>
+                      </td>
+                    </tr>
+                  `;
+
+                  const childHtml = group.items.map(x => `
+                    <tr class="${gid} hidden bg-slate-950/40 hover:bg-slate-800/50 transition border-l-2 border-amber-500/50">
+                      <td class="py-2.5 px-4 pl-8 text-slate-400 font-mono text-[11.5px] whitespace-nowrap">${U.fmtDateID(x.date)}</td>
+                      <td class="py-2.5 px-4">
+                        <div class="flex items-center gap-2">
+                           <span class="text-slate-300 text-[11.5px] truncate max-w-[200px]">${x.subcategory}</span>
+                        </div>
+                      </td>
+                      <td class="py-2.5 px-4 text-slate-400 text-[11.5px] max-w-[200px] truncate">${x.note || 'Alokasi dana'}</td>
+                      <td class="py-2.5 px-4 text-right font-mono font-semibold text-amber-400/80 text-[12.5px] whitespace-nowrap">${U.fmtIDR(x.amount)}</td>
+                      <td class="py-2.5 px-4 text-center whitespace-nowrap">
+                        ${x.attachmentUrl ? `<button type="button" onclick="event.stopPropagation(); window.__cashApp.openAttachmentPreview('${x.attachmentUrl}')" class="inline-flex items-center gap-1.5 text-[10px] font-bold text-teal-300 bg-teal-500/10 border border-teal-500/20 rounded md px-2 py-0.5 hover:bg-teal-500/30 transition">Bukti</button>` : '<span class="text-slate-600 text-[10px]">-</span>'}
+                      </td>
+                      <td class="py-2.5 px-4 text-center whitespace-nowrap">
+                        <button type="button" data-edit="${x.id}" class="text-[10px] font-semibold text-slate-400 hover:text-white transition">Edit</button>
+                      </td>
+                    </tr>
+                  `).join('');
+                  return parentHtml + childHtml;
+                }
               }).join('')}
             </tbody>
           </table>
@@ -4537,6 +4644,7 @@ export default function Home({ initialView = 'landing' }) {
       <div>
         <label className="text-[12.5px] font-medium text-slate-300">Target Dana (Rp)</label>
         <input id="alc_target" type="text" inputMode="numeric" className="w-full mt-1 border border-slate-800 rounded-xl h-11 px-3 text-sm font-mono bg-slate-950 text-white focus:border-teal-500" placeholder="Target Rp (opsional)" />
+        <p id="alc_target_help" className="text-[10.5px] text-amber-400 font-medium mt-1 hidden"></p>
       </div>
     </div>
     <div>
